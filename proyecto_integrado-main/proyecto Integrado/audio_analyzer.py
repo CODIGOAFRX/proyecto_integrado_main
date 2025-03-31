@@ -34,15 +34,34 @@ class AudioAnalyzer:
         self._thread.daemon = True
 
     def _callback(self, indata, frames, time, status):
-        signal = indata[:, 0]  # Tomamos solo un canal de audio
-        rms = np.sqrt(np.mean(signal**2)) # Calcula el valor RMS de la señal (forma estandar de medir volumen de energía)
-        self.volume = 20 * np.log10(max(rms, 1e-10))  # Convierte el volumen RMS en dB
-
-        fft = np.abs(np.fft.rfft(signal))   #Calcula la FFT → convierte la señal de audio del dominio del tiempo al de frecuencia.
-                                            #np.abs(): Solo nos interesa la magnitud de las frecuencias (no la fase).
-        self.fft_data = fft 
-        self.dominant_freq = np.argmax(fft) * self.sample_rate / len(fft) #indica el indice de la frecuencia con más energía.
-
+        signal = indata[:, 0]
+        
+        # Volumen en dB
+        rms = np.sqrt(np.mean(signal**2))
+        self.volume = 20 * np.log10(max(rms, 1e-10))
+        
+        # Aplicar ventana de Hanning
+        window = np.hanning(len(signal))
+        windowed_signal = signal * window
+        
+        # FFT
+        fft = np.abs(np.fft.rfft(windowed_signal))
+        self.fft_data = fft
+        
+        # Interpolación parabólica para mejor precisión del pico
+        peak_bin = np.argmax(fft)
+        
+        if 1 <= peak_bin < len(fft) - 1:
+            alpha = fft[peak_bin - 1]
+            beta = fft[peak_bin]
+            gamma = fft[peak_bin + 1]
+        
+            p = 0.5 * (alpha - gamma) / (alpha - 2 * beta + gamma)
+            peak_bin += p  # desplazamiento fraccional del pico
+        
+        # Cálculo de frecuencia dominante
+        self.dominant_freq = peak_bin * self.sample_rate / self.chunk_size
+        
     def start(self):
         self._thread.start()
 
