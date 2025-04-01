@@ -1,0 +1,145 @@
+<mxfile host="app.diagrams.net" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36" version="26.2.2">
+  <diagram name="Page-1" id="ubOp7gi-jzZDrqNbWo8K">
+    <mxGraphModel dx="2320" dy="1462" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="x-15sEzO1fyqi9SWZWHw-1" value="" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="150" width="840" height="400" as="geometry" />
+        </mxCell>
+        <mxCell id="x-15sEzO1fyqi9SWZWHw-2" value="&lt;font style=&quot;font-size: 16px;&quot;&gt;ORBE CON VOLUMEN FUERTE&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;" vertex="1" parent="1">
+          <mxGeometry x="550" y="180" width="305" height="305" as="geometry" />
+        </mxCell>
+        <mxCell id="x-15sEzO1fyqi9SWZWHw-4" value="" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="65" y="220" width="360" height="260" as="geometry" />
+        </mxCell>
+        <mxCell id="x-15sEzO1fyqi9SWZWHw-5" value="&lt;font style=&quot;font-size: 18px;&quot;&gt;db: -20&lt;/font&gt;" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="450" y="230" width="70" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="x-15sEzO1fyqi9SWZWHw-6" value="&lt;font style=&quot;font-size: 18px;&quot;&gt;lufs: -20&lt;/font&gt;" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="450" y="260" width="70" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="x-15sEzO1fyqi9SWZWHw-7" value="RANGO DE FRECUENCIAS DE 0 A 20KH" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="65" y="485" width="355" height="15" as="geometry" />
+        </mxCell>
+        <mxCell id="x-15sEzO1fyqi9SWZWHw-8" value="&lt;font style=&quot;font-size: 18px;&quot;&gt;ESPECTROMETRO DE FREUENCIAS&lt;/font&gt;" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="207.5" y="320" width="70" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="x-15sEzO1fyqi9SWZWHw-13" value="&lt;font style=&quot;font-size: 18px;&quot;&gt;EJE Y&lt;/font&gt;" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="667.5" y="500" width="70" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="x-15sEzO1fyqi9SWZWHw-14" value="&lt;font style=&quot;font-size: 18px;&quot;&gt;EJE X&lt;/font&gt;" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="450" y="317.5" width="70" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="x-15sEzO1fyqi9SWZWHw-15" value="INICIAR ANALISIS" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="450" y="180" width="70" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="x-15sEzO1fyqi9SWZWHw-17" value="SELECTOR DE INPUTS" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="72.5" y="180" width="365" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="x-15sEzO1fyqi9SWZWHw-18" value="" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="40" y="600" width="840" height="400" as="geometry" />
+        </mxCell>
+        <mxCell id="x-15sEzO1fyqi9SWZWHw-20" value="" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="65" y="670" width="360" height="260" as="geometry" />
+        </mxCell>
+        <mxCell id="x-15sEzO1fyqi9SWZWHw-21" value="&lt;font style=&quot;font-size: 18px;&quot;&gt;db: -20&lt;/font&gt;" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="450" y="680" width="70" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="x-15sEzO1fyqi9SWZWHw-22" value="&lt;font style=&quot;font-size: 18px;&quot;&gt;lufs: -20&lt;/font&gt;" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="450" y="710" width="70" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="x-15sEzO1fyqi9SWZWHw-23" value="RANGO DE FRECUENCIAS DE 0 A 20KH" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="65" y="935" width="355" height="15" as="geometry" />
+        </mxCell>
+        <mxCell id="x-15sEzO1fyqi9SWZWHw-24" value="&lt;font style=&quot;font-size: 18px;&quot;&gt;ESPECTROMETRO DE FREUENCIAS&lt;/font&gt;" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="207.5" y="770" width="70" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="x-15sEzO1fyqi9SWZWHw-25" value="&lt;font style=&quot;font-size: 18px;&quot;&gt;EJE Y&lt;/font&gt;" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="667.5" y="950" width="70" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="x-15sEzO1fyqi9SWZWHw-26" value="&lt;font style=&quot;font-size: 18px;&quot;&gt;EJE X&lt;/font&gt;" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="450" y="767.5" width="70" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="x-15sEzO1fyqi9SWZWHw-27" value="INICIAR ANALISIS" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="450" y="630" width="70" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="x-15sEzO1fyqi9SWZWHw-28" value="SELECTOR DE INPUTS" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="72.5" y="630" width="365" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="x-15sEzO1fyqi9SWZWHw-29" value="ORBE CON MÁS PRESENCIA DE GRABES" style="ellipse;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="541.87" y="665.63" width="321.25" height="238.75" as="geometry" />
+        </mxCell>
+        <mxCell id="x-15sEzO1fyqi9SWZWHw-30" value="" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="960" y="600" width="840" height="400" as="geometry" />
+        </mxCell>
+        <mxCell id="x-15sEzO1fyqi9SWZWHw-31" value="" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="985" y="670" width="360" height="260" as="geometry" />
+        </mxCell>
+        <mxCell id="x-15sEzO1fyqi9SWZWHw-32" value="&lt;font style=&quot;font-size: 18px;&quot;&gt;db: -20&lt;/font&gt;" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="1370" y="680" width="70" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="x-15sEzO1fyqi9SWZWHw-33" value="&lt;font style=&quot;font-size: 18px;&quot;&gt;lufs: -20&lt;/font&gt;" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="1370" y="710" width="70" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="x-15sEzO1fyqi9SWZWHw-34" value="RANGO DE FRECUENCIAS DE 0 A 20KH" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="985" y="935" width="355" height="15" as="geometry" />
+        </mxCell>
+        <mxCell id="x-15sEzO1fyqi9SWZWHw-35" value="&lt;font style=&quot;font-size: 18px;&quot;&gt;ESPECTROMETRO DE FREUENCIAS&lt;/font&gt;" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="1127.5" y="770" width="70" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="x-15sEzO1fyqi9SWZWHw-36" value="&lt;font style=&quot;font-size: 18px;&quot;&gt;EJE Y&lt;/font&gt;" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="1587.5" y="950" width="70" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="x-15sEzO1fyqi9SWZWHw-37" value="&lt;font style=&quot;font-size: 18px;&quot;&gt;EJE X&lt;/font&gt;" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="1370" y="767.5" width="70" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="x-15sEzO1fyqi9SWZWHw-38" value="INICIAR ANALISIS" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="1370" y="630" width="70" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="x-15sEzO1fyqi9SWZWHw-39" value="SELECTOR DE INPUTS" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="992.5" y="630" width="365" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="x-15sEzO1fyqi9SWZWHw-40" value="" style="ellipse;whiteSpace=wrap;html=1;rotation=-90;" vertex="1" parent="1">
+          <mxGeometry x="1461.87" y="665.63" width="321.25" height="238.75" as="geometry" />
+        </mxCell>
+        <mxCell id="x-15sEzO1fyqi9SWZWHw-42" value="ORBE CON MÁS PRESENCIA DE AGUDOS" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="1592.5" y="760" width="60" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="x-15sEzO1fyqi9SWZWHw-43" value="" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="960" y="150" width="840" height="400" as="geometry" />
+        </mxCell>
+        <mxCell id="x-15sEzO1fyqi9SWZWHw-44" value="&lt;font style=&quot;font-size: 16px;&quot;&gt;ORBE CON VOLUMEN BAJO&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;" vertex="1" parent="1">
+          <mxGeometry x="1529.99" y="242.5" width="185" height="185" as="geometry" />
+        </mxCell>
+        <mxCell id="x-15sEzO1fyqi9SWZWHw-45" value="" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="985" y="220" width="360" height="260" as="geometry" />
+        </mxCell>
+        <mxCell id="x-15sEzO1fyqi9SWZWHw-46" value="&lt;font style=&quot;font-size: 18px;&quot;&gt;db: -20&lt;/font&gt;" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="1370" y="230" width="70" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="x-15sEzO1fyqi9SWZWHw-47" value="&lt;font style=&quot;font-size: 18px;&quot;&gt;lufs: -20&lt;/font&gt;" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="1370" y="260" width="70" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="x-15sEzO1fyqi9SWZWHw-48" value="RANGO DE FRECUENCIAS DE 0 A 20KH" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="985" y="485" width="355" height="15" as="geometry" />
+        </mxCell>
+        <mxCell id="x-15sEzO1fyqi9SWZWHw-49" value="&lt;font style=&quot;font-size: 18px;&quot;&gt;ESPECTROMETRO DE FREUENCIAS&lt;/font&gt;" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="1127.5" y="320" width="70" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="x-15sEzO1fyqi9SWZWHw-50" value="&lt;font style=&quot;font-size: 18px;&quot;&gt;EJE Y&lt;/font&gt;" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="1587.5" y="500" width="70" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="x-15sEzO1fyqi9SWZWHw-51" value="&lt;font style=&quot;font-size: 18px;&quot;&gt;EJE X&lt;/font&gt;" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="1370" y="317.5" width="70" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="x-15sEzO1fyqi9SWZWHw-52" value="INICIAR ANALISIS" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="1370" y="180" width="70" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="x-15sEzO1fyqi9SWZWHw-53" value="SELECTOR DE INPUTS" style="rounded=0;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="992.5" y="180" width="365" height="25" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
