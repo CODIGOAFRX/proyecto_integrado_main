@@ -15,7 +15,7 @@ import os
 
 # Ruta absoluta donde Blender leerá los datos JSON
 # PACEHOLDER - CAMBIAR LA RUTA SEGÚN EL EQUIPO QUE LO EJECUTE 
-JSON_PATH = r"E:\TFG 2025\proyecto_integrado_main-main\proyecto_integrado-main\proyecto Integrado\json\orbis_data.json"
+JSON_PATH = r"E:\TFG 2025\proyecto_integrado_main\proyecto_integrado-main\proyecto Integrado\json\orbis_data.json"
 
 # Clase que define el widget del orbe, que representa el volumen y la frecuencia dominante en forma de una elipse.
 class OrbWidget(QWidget):
@@ -123,18 +123,15 @@ class SpectrumWidget(QWidget):
 class CyberUI(QWidget):
     def __init__(self):
         super().__init__()
-        # Configuración principal de la ventana
         self.setWindowTitle("Cyber Audio Cockpit")
         self.setStyleSheet("background-color: #0d0d0d; color: #00ff99;")
         self.setMinimumSize(1000, 600)
         font_main = QFont("Consolas", 14)
 
-        # Desplegable para seleccionar el tipo de entrada
         self.device_selector = QComboBox()
         self.device_selector.setStyleSheet("background-color: #1a1a1a; color: #00ff99; padding: 5px;")
         self.populate_devices()
 
-        # Botón para iniciar el análisis de audio
         self.button_start = QPushButton("INICIAR ANÁLISIS")
         self.button_start.setStyleSheet("""
             QPushButton {
@@ -146,17 +143,14 @@ class CyberUI(QWidget):
         """)
         self.button_start.clicked.connect(self.start_analysis)
 
-        # Etiquetas para mostrar dB y LUFS
         self.label_db   = QLabel("dB: ---")
         self.label_db.setFont(font_main)
         self.label_lufs = QLabel("LUFS: ---")
         self.label_lufs.setFont(font_main)
 
-        # Widgets de visualización
         self.orb_widget      = OrbWidget()
         self.spectrum_widget = SpectrumWidget()
 
-        # Layout principal con rejilla (QGridLayout)
         grid = QGridLayout()
         grid.addWidget(QLabel("SELECTOR DE INPUTS"), 0, 0)
         grid.addWidget(self.device_selector, 1, 0)
@@ -167,20 +161,17 @@ class CyberUI(QWidget):
         grid.addWidget(self.label_lufs, 3, 1, Qt.AlignRight)
         self.setLayout(grid)
 
-        # Configuración del analizador y temporizador
         self.analyzer = None
         self.timer    = QTimer()
         self.timer.timeout.connect(self.update_ui)
 
     def populate_devices(self):
-        # Llena el ComboBox con dispositivos de entrada de audio disponibles
         self.devices = sd.query_devices()
         input_devices = [(i, d['name']) for i, d in enumerate(self.devices) if d['max_input_channels'] > 0]
         for i, name in input_devices:
             self.device_selector.addItem(name, userData=i)
 
     def start_analysis(self):
-        # Obtiene el índice del dispositivo seleccionado y (re)lanza el analizador
         device_index = self.device_selector.currentData()
         if self.analyzer:
             try:
@@ -194,40 +185,51 @@ class CyberUI(QWidget):
         if not self.timer.isActive():
             self.timer.start(100)
 
-    def export_to_json(self, volume, freq):
-        """Escribe volumen y frecuencia en un JSON para Blender."""
-        # Convierte a tipos nativos de Python
-        payload = {
-            "volume": float(volume),
-            "dominant_freq": float(freq)
-        }
-        # Asegurarse de que la carpeta existe (por si cambias la ruta en ejecución)
-        carpeta = os.path.dirname(JSON_PATH)
-        if not os.path.exists(carpeta):
-            os.makedirs(carpeta, exist_ok=True)
-        # Escribe (o crea) el fichero JSON
+    def export_to_json(self, volume, freq, fft):
+        """Escribe volumen, frecuencia dominante y 13 bandas clave (en dB) en JSON."""
         try:
+            freqs = np.fft.rfftfreq(len(fft) * 2 - 1, 1 / self.analyzer.sample_rate)
+            fft = np.array(fft)
+            target_freqs = [20, 50, 100, 250, 500, 1000, 2000, 5000, 6000, 7000, 12000, 15000, 20000]
+            spectrum = {}
+
+            for target in target_freqs:
+                idx = (np.abs(freqs - target)).argmin()
+                db = 20 * np.log10(max(fft[idx], 1e-10))
+                spectrum[f"{target}Hz"] = round(db, 2)
+
+            payload = {
+                "volume": round(float(volume), 2),
+                "dominant_freq": round(float(freq), 2),
+                "spectrum": spectrum
+            }
+
+            carpeta = os.path.dirname(JSON_PATH)
+            if not os.path.exists(carpeta):
+                os.makedirs(carpeta, exist_ok=True)
+
             with open(JSON_PATH, "w") as f:
-                json.dump(payload, f)
+                json.dump(payload, f, indent=4)
+
         except Exception as e:
             print("Error exportando JSON:", e)
 
+
     def update_ui(self):
-        # Método llamado cada 100 ms para actualizar la UI y exportar datos
         if not self.analyzer:
             return
         data = self.analyzer.get_audio_data()
         vol  = data["volume"]
         freq = data["dominant_freq"]
+        fft  = data["fft"]
 
-        # Actualiza etiquetas y widgets
         self.label_db.setText(f"dB: {vol:.1f}")
         self.label_lufs.setText(f"LUFS: {vol:.1f}")
         self.orb_widget.update_data(vol, freq)
-        self.spectrum_widget.update_fft(data["fft"])
+        self.spectrum_widget.update_fft(fft)
 
-        # Exporta datos a JSON para que Blender los lea
-        self.export_to_json(vol, freq)
+        self.export_to_json(vol, freq, fft)
+
 
 
 if __name__ == "__main__":

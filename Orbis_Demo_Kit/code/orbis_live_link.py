@@ -1,92 +1,244 @@
 bl_info = {
-    "name":        "Orbis Live Link - Alpha Build",
+    "name":        "Orbis Live Link – Enhanced",
     "author":      "Orbis Team",
-    "version":     (1, 1, 0),
+    "version":     (1, 2, 0),
     "blender":     (3, 6, 0),
     "location":    "View3D > Sidebar > Orbis",
-    "description": "Lee datos JSON desde tu app Qt/Python y actualiza Geometry Nodes en tiempo real, con panel de estado",
+    "description": "Lectura de JSON / WAV, setup automático de Geometry Nodes y estadísticas de malla",
     "category":    "Object",
 }
 
-import bpy
-import json
-import os
-import time
+import bpy, os, json, time, wave, struct
+import numpy as np
+from bpy.props import (
+    StringProperty, PointerProperty, BoolProperty, EnumProperty
+)
+from bpy.types import (
+    Panel, Operator, PropertyGroup, AddonPreferences
+)
 
-# Ruta al JSON generado por tu GUI Qt/Python
-JSON_PATH = r"E:\TFG 2025\proyecto_integrado_main-main\proyecto_integrado-main\proyecto Integrado\json\orbis_data.json"
+# --------------------------------------------------------------
+#   PROPERTIES
+# --------------------------------------------------------------
 
-# Nombres en tu escena Blender: ajusta si los has llamado distinto
-OBJECT_NAME   = "Icosphere"
-MODIFIER_NAME = "GeometryNodes"
-INPUT_VOL     = "Volume"
-INPUT_FREQ    = "DominantFreq"
+class ORBIS_Props(PropertyGroup):
+    json_path: StringProperty(
+        name="JSON Path",
+        description="Ruta al archivo JSON de Orbis (override)",
+        subtype='FILE_PATH',
+        default=""
+    )
+    target_obj: PointerProperty(
+        name="Target Mesh",
+        description="Objeto al que aplicar deformación",
+        type=bpy.types.Object
+    )
+    auto_setup: BoolProperty(
+        name="Auto‑setup GN",
+        description="Genera nodo de deformación si no existe",
+        default=False
+    )
+    wav_path: StringProperty(
+        name="Load WAV",
+        description="Archivo de audio .wav para análisis interno",
+        subtype='FILE_PATH',
+        default=""
+    )
+    last_log: StringProperty(
+        name="Log",
+        description="Último mensaje de acción",
+        default=""
+    )
 
-# Datos leídos más recientemente
-last_data = {
-    "volume": 0.0,
-    "dominant_freq": 0.0,
-    "timestamp": 0.0,
-}
+# --------------------------------------------------------------
+#   GLOBAL STATE
+# --------------------------------------------------------------
+
+last_data = {"volume":0.0, "dominant_freq":0.0, "timestamp":0.0}
+
+# --------------------------------------------------------------
+#   TIMERS & JSON POLLING
+# --------------------------------------------------------------
 
 def poll_json():
-    """
-    Función llamada periódicamente por bpy.app.timers.
-    Lee el JSON y vuelca los valores en los inputs de Geometry Nodes.
-    También almacena los datos en last_data para mostrarlos en el panel.
-    """
+    props = bpy.context.scene.orbis_props
+    path = props.json_path or os.path.abspath(
+        os.path.join(os.path.dirname(bpy.data.filepath),"json/orbis_data.json")
+    )
+    if not os.path.isfile(path):
+        last_data["timestamp"] = 0.0
+        return 0.5
     try:
-        # Si el fichero no existe aún, agendar siguiente llamada
-        if not os.path.exists(JSON_PATH):
-            return 0.1
-
-        with open(JSON_PATH, "r") as f:
-            data = json.load(f)
-
-        # Actualizar último timestamp y datos
-        last_data["volume"]       = float(data.get("volume", 0.0))
-        last_data["dominant_freq"]= float(data.get("dominant_freq", 0.0))
-        last_data["timestamp"]    = time.time()
-
-        # Busca el objeto y su modifier
-        obj = bpy.data.objects.get(OBJECT_NAME)
-        if obj is None:
-            print(f"[Orbis] Objeto '{OBJECT_NAME}' no existe.")
-            return 0.5
-
-        mod = obj.modifiers.get(MODIFIER_NAME)
-        if mod is None or not hasattr(mod, "node_group"):
-            print(f"[Orbis] Modifier '{MODIFIER_NAME}' no encontrado o no es GeometryNodes.")
-            return 0.5
-
-        ng = mod.node_group
-
-        # Asigna los valores a los inputs del grupo
-        if INPUT_VOL in ng.inputs:
-            ng.inputs[INPUT_VOL].default_value = last_data["volume"]
-        if INPUT_FREQ in ng.inputs:
-            ng.inputs[INPUT_FREQ].default_value = last_data["dominant_freq"]
-
+        with open(path) as f:
+            d = json.load(f)
+        last_data["volume"] = float(d.get("volume",0.0))
+        last_data["dominant_freq"] = float(d.get("dominant_freq",0.0))
+        last_data["timestamp"] = time.time()
+        props.last_log = f"JSON OK: {os.path.basename(path)}"
     except Exception as e:
-        print("[Orbis] Error leyendo JSON:", e)
-
-    # Repite tras 0.1 segundos
+        props.last_log = f"JSON Error: {e}"
+    apply_to_geometry()
     return 0.1
 
-class ORBIS_OT_refresh(bpy.types.Operator):
-    """Forzar lectura de JSON ahora mismo"""
-    bl_idname = "orbis.refresh"
-    bl_label  = "Refrescar Orbis"
+# --------------------------------------------------------------
+#   GEOMETRY NODES SETUP
+# --------------------------------------------------------------
 
-    def execute(self, context):
-        # Llamada manual a poll_json (ignora su return)
-        poll_json()
-        self.report({'INFO'}, "Orbis: datos actualizados")
+def setup_geometry_nodes(obj):
+    """Crea un modifier Geometry Nodes con un setup básico de ruido+volumen."""
+    ng_name = f"{obj.name}_OrbisGN"
+    # 1) Crear node_group
+    node_group = bpy.data.node_groups.new(ng_name, 'GeometryNodeTree')
+    # 2) Group inputs / outputs
+    gi = node_group.nodes.new('NodeGroupInput')
+    go = node_group.nodes.new('NodeGroupOutput')
+    node_group.inputs.new('NodeSocketGeometry','Geometry')
+    node_group.inputs.new('NodeSocketFloat','Volume')
+    node_group.inputs.new('NodeSocketFloat','DominantFreq')
+    node_group.outputs.new('NodeSocketGeometry','Geometry')
+    # 3) Posición original
+    pos = node_group.nodes.new('GeometryNodeInputPosition')
+    # 4) Normal
+    nor = node_group.nodes.new('GeometryNodeInputNormal')
+    # 5) Noise Texture
+    noise = node_group.nodes.new('ShaderNodeTexNoise')
+    # 6) Map Range para freq → scale
+    mr = node_group.nodes.new('FunctionNodeMapRange')
+    mr.inputs[1].default_value = 0   # From Min
+    mr.inputs[2].default_value = 20000 # From Max
+    mr.inputs[3].default_value = 1   # To Min
+    mr.inputs[4].default_value = 10  # To Max
+    # 7) Multiply normal × Volume
+    mul = node_group.nodes.new('ShaderNodeVectorMath'); mul.operation='MULTIPLY'
+    # 8) Add (pos + desplazamiento)
+    add = node_group.nodes.new('ShaderNodeVectorMath'); add.operation='ADD'
+    # 9) Set Position
+    sp = node_group.nodes.new('GeometryNodeSetPosition')
+    # 10) Transform
+    tr = node_group.nodes.new('GeometryNodeTransform')
+    # Conexiones:
+    links = node_group.links
+    # Geometry chain
+    links.new(gi.outputs['Geometry'], sp.inputs['Geometry'])
+    links.new(sp.outputs['Geometry'], tr.inputs['Geometry'])
+    links.new(tr.outputs['Geometry'], go.inputs['Geometry'])
+    # Position + normal chain
+    links.new(gi.outputs['Geometry'], gi.outputs['Geometry'])
+    links.new(gi.outputs['Volume'], mul.inputs[1])
+    links.new(nor.outputs['Normal'], mul.inputs[0])
+    links.new(mul.outputs['Vector'], add.inputs[1])
+    links.new(pos.outputs['Position'], add.inputs[0])
+    links.new(add.outputs['Vector'], sp.inputs['Offset'])
+    # Noise scale by freq
+    links.new(gi.outputs['DominantFreq'], mr.inputs['Value'])
+    links.new(mr.outputs['Result'], noise.inputs['Scale'])
+    # Noise outputs control deformation
+    links.new(noise.outputs['Fac'], mul.inputs[1])  # replace volume for noise*normal?
+    # Transform Z scale by freq
+    # Combine XYZ
+    cb = node_group.nodes.new('ShaderNodeCombineXYZ')
+    cb.inputs['X'].default_value = 1
+    cb.inputs['Y'].default_value = 1
+    links.new(mr.outputs['Result'], cb.inputs['Z'])
+    links.new(cb.outputs['Vector'], tr.inputs['Scale'])
+    # Exponer inputs
+    gi.location = (-600,0)
+    go.location = (400,0)
+    for n in (pos,nor,noise,mr,mul,add,sp,tr,cb):
+        n.location.x += -200
+    return node_group
+
+# --------------------------------------------------------------
+#   APPLY DEFORM
+# --------------------------------------------------------------
+
+def apply_to_geometry():
+    props = bpy.context.scene.orbis_props
+    obj = props.target_obj
+    if not obj or obj.type!='MESH':
+        return
+    # Asegura modifier Geometry Nodes
+    mod = obj.modifiers.get("OrbisGN")
+    if not mod:
+        # intenta buscar otro GN
+        for m in obj.modifiers:
+            if m.type=='NODES':
+                mod=m; break
+    if not mod and props.auto_setup:
+        node_group = setup_geometry_nodes(obj)
+        mod = obj.modifiers.new("OrbisGN","NODES")
+        mod.node_group = node_group
+        props.last_log = f"GN creado para {obj.name}"
+    if not mod or not mod.node_group:
+        return
+    ng = mod.node_group
+    # Asigna valores a los inputs del group
+    try:
+        ng.inputs['Volume'].default_value = last_data['volume']
+        ng.inputs['DominantFreq'].default_value = last_data['dominant_freq']
+    except:
+        pass
+
+# --------------------------------------------------------------
+#   OPERATORS
+# --------------------------------------------------------------
+
+class ORBIS_OT_setup(Operator):
+    bl_idname = "orbis.setup_gn"
+    bl_label  = "Setup Geometry Nodes"
+    bl_description = "Genera o actualiza el node_tree de Orbis en el objeto seleccionado"
+    def execute(self,context):
+        props = context.scene.orbis_props
+        obj = props.target_obj
+        if not obj or obj.type!='MESH':
+            self.report({'ERROR'},"Selecciona antes un mesh")
+            return {'CANCELLED'}
+        setup_geometry_nodes(obj)
+        self.report({'INFO'},f"GN creado en {obj.name}")
         return {'FINISHED'}
 
+class ORBIS_OT_load_wav(Operator):
+    bl_idname = "orbis.load_wav"
+    bl_label  = "Analizar WAV"
+    bl_description = "Carga el WAV y calcula volumen y freq dominante"
+    def execute(self,context):
+        props = context.scene.orbis_props
+        path = bpy.path.abspath(props.wav_path)
+        if not os.path.isfile(path):
+            self.report({'ERROR'},"Archivo WAV no encontrado")
+            return {'CANCELLED'}
+        try:
+            w = wave.open(path,'rb')
+            nchan = w.getnchannels()
+            fr = w.getframerate()
+            nframes = w.getnframes()
+            data = w.readframes(nframes)
+            w.close()
+            # convierto a ints
+            fmt = {1:'b',2:'h',4:'i'}[w.getsampwidth()]
+            samples = np.array(struct.unpack("<"+fmt*nframes*nchan,data))
+            samples = samples.reshape(-1,nchan).mean(axis=1)
+            # RMS y FFT
+            rms = np.sqrt(np.mean(samples**2))
+            volume = 20*np.log10(max(rms,1e-10))
+            fft = np.abs(np.fft.rfft(samples))
+            peak = np.argmax(fft)
+            dom = peak*fr/len(samples)
+            # guarda en last_data y aplica
+            last_data['volume']=volume
+            last_data['dominant_freq']=dom
+            last_data['timestamp']=time.time()
+            props.last_log = f"WAV OK: {os.path.basename(path)}"
+            apply_to_geometry()
+        except Exception as e:
+            props.last_log = f"WAV Error: {e}"
+        return {'FINISHED'}
 
-class ORBIS_PT_sidebar(bpy.types.Panel):
-    """Panel lateral para mostrar estado de Orbis Live Link"""
+# --------------------------------------------------------------
+#   PANEL
+# --------------------------------------------------------------
+
+class ORBIS_PT_sidebar(Panel):
     bl_label      = "Orbis Live Link"
     bl_idname     = "ORBIS_PT_sidebar"
     bl_space_type = 'VIEW_3D'
@@ -95,34 +247,65 @@ class ORBIS_PT_sidebar(bpy.types.Panel):
 
     def draw(self, context):
         layout = self.layout
+        props = context.scene.orbis_props
 
-        # Información de la ruta
-        col = layout.column()
-        col.label(text="JSON path:")
-        col.label(text=os.path.basename(JSON_PATH), icon='FILE')
+        # JSON
+        col = layout.column(align=True)
+        col.label(text="JSON Path:")
+        col.prop(props,"json_path",text="")
+        col.operator("orbis.refresh",icon='FILE_REFRESH')
 
-        # Estado de conexión
-        connected = last_data["timestamp"] > 0 and os.path.exists(JSON_PATH)
-        row = layout.row()
-        row.label(text="Conectado:" if connected else "Sin datos", 
-                  icon='CHECKMARK' if connected else 'ERROR')
+        # WAV
+        col.separator()
+        col.label(text="Load WAV:")
+        col.prop(props,"wav_path",text="")
+        col.operator("orbis.load_wav",icon='SOUND')
 
-        # Mostrar últimos valores
-        row = layout.row()
-        row.label(text=f"dB: {last_data['volume']:.1f}")
-        row = layout.row()
-        row.label(text=f"Freq: {last_data['dominant_freq']:.1f} Hz")
+        # Target mesh
+        col.separator()
+        col.label(text="Target Object:")
+        col.prop(props,"target_obj",text="")
+        col.prop(props,"auto_setup",text="Auto‑setup GN")
+        col.operator("orbis.setup_gn",icon='NODETREE')
 
-        # Mostrar hora de la última actualización
-        if last_data["timestamp"] > 0:
-            t = time.localtime(last_data["timestamp"])
-            layout.label(text="Última lectura: " + time.strftime("%H:%M:%S", t))
+        # Statistics
+        obj = props.target_obj
+        if obj and obj.type=='MESH':
+            me = obj.data
+            layout.separator()
+            layout.label(text="Mesh Stats:")
+            layout.label(text=f"Verts: {len(me.vertices)}")
+            layout.label(text=f"Edges: {len(me.edges)}")
+            layout.label(text=f"Faces: {len(me.polygons)}")
+            tris = sum([p.loop_total-2 for p in me.polygons])
+            layout.label(text=f"Tris: {tris}")
+            vc = len(me.vertex_colors) if hasattr(me,"vertex_colors") else 0
+            layout.label(text=f"VColors: {vc}")
+            rig = ("Yes" if obj.find_armature() else "No")
+            layout.label(text=f"Armature: {rig}")
 
-        # Botón para forzar refresco
-        layout.operator("orbis.refresh", icon='FILE_REFRESH')
+        # Data & log
+        layout.separator()
+        connected = last_data["timestamp"]>0
+        icon = 'CHECKMARK' if connected else 'ERROR'
+        layout.label(text=f"JSON OK" if connected else "No data",icon=icon)
+        if connected:
+            layout.label(text=f"dB: {last_data['volume']:.1f}")
+            layout.label(text=f"Freq: {last_data['dominant_freq']:.1f} Hz")
+            t = time.localtime(last_data['timestamp'])
+            layout.label(text="Last: "+time.strftime("%H:%M:%S",t))
+        layout.separator()
+        layout.label(text="Log:")
+        layout.label(text=props.last_log)
 
+# --------------------------------------------------------------
+#   REGISTRY
+# --------------------------------------------------------------
 
 classes = (
+    ORBIS_Props,
+    ORBIS_OT_setup,
+    ORBIS_OT_load_wav,
     ORBIS_OT_refresh,
     ORBIS_PT_sidebar,
 )
@@ -130,14 +313,16 @@ classes = (
 def register():
     for cls in classes:
         bpy.utils.register_class(cls)
+    bpy.types.Scene.orbis_props = PointerProperty(type=ORBIS_Props)
     bpy.app.timers.register(poll_json)
-    print("[Orbis] Add-on registrado y timer iniciado.")
+    print("[Orbis] Add-on registrado.")
 
 def unregister():
     try:
         bpy.app.timers.unregister(poll_json)
-    except Exception:
+    except:
         pass
     for cls in reversed(classes):
         bpy.utils.unregister_class(cls)
-    print("[Orbis] Add-on desregistrado y timer detenido.")
+    del bpy.types.Scene.orbis_props
+    print("[Orbis] Add-on desregistrado.")
