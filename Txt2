@@ -1,0 +1,38 @@
+1.4
+
+DAFO
+Analisis del sector
+CAME
+
+1.5.1 
+
+Mencionar SL
+
+1.5.2
+
+IRPF retención anual (modelo 190 (?))
+
+estudio de ingresos 4 años, a parte de las subvenciones
+gastos de seguridad social y nomina (fogasa, desempleo, pagas extras...)
+salario bruto....
+
+balance economico de empresaa a primer y segundo año
+
+infraestructura fisica añadir a inversion inicial 
+
+
+3.1 Hablamos del diseño tecnico --> CODIGO
+DIAGRAMA DE CLASES - 
+DIAGRAMA ENTIDAD RELACCIÓN --> NO HAY BD ASI QUE NO
+DIAGRAMA DE CASWOS DE USO - TECNICO DE SONIDO (ACT) ->> CADA FUNCION DEL CONTROLLER ES CASO DE USO (INCLUIMOS HERRAMIENTRAS (BLENDER ACTOR))
+
+MODEL -  JSON
+VIEW - IU
+AUDIO_A - CONTROLLER
+
+DISTINTOS PROGRAMAS QUE INTEGRAMOS EN CASOS DE USO PONEMOS DONDE INTERVIENEN--
+
+ANEXO ES UTIL...
+
+
+CASOS DE USO ENCIMA DE PUNTO 3.3 Y RENOMBRAMOS
