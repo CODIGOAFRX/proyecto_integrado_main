@@ -14,8 +14,8 @@ import numpy as np
 import os
 
 # Ruta absoluta donde Blender leerá los datos JSON
-# PACEHOLDER - CAMBIAR LA RUTA SEGÚN EL EQUIPO QUE LO EJECUTE 
-JSON_PATH = r"E:\TFG 2025\proyecto_integrado_main\proyecto_integrado-main\proyecto Integrado\json\orbis_data.json"
+# Determina la ruta del archivo JSON relativa al script
+JSON_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "json", "orbis_data.json")
 
 # Clase que define el widget del orbe, que representa el volumen y la frecuencia dominante en forma de una elipse.
 class OrbWidget(QWidget):
