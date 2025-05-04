@@ -15,7 +15,7 @@ bl_info = {
 }
 
 # JSON path y nodos
-JSON_PATH = r"E:\TFG 2025\proyecto_integrado_main\proyecto_integrado-main\proyecto Integrado\json\orbis_data.json"
+JSON_PATH = bpy.path.abspath("//json/orbis_data.json")
 OBJECT_NAME = "Icosphere"
 MODIFIER_NAME = "GeometryNodes"
 INPUT_VOL = "Volume"
