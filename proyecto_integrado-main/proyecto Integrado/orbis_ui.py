@@ -51,6 +51,8 @@ LOGO_PATH = IMG_DIR / "orbis_logo.png"        # encabezado
 ICON_PATH = IMG_DIR / "orbis_icon.ico"        # icono app / task‑bar
 VERSION   = "v0.9‑beta"
 
+Y_MIN_DB = -40     # fondo del gráfico
+Y_MAX_DB =  30     # head‑room visible
 COLORS = dict(bg="#121212", panel="#1E1E1E", border="#2D2D2D", text="#E0E0E0",
               primary="#45A4FF", secondary="#9B4DFF", cyan="#45D6FF")
 
@@ -346,143 +348,123 @@ class OrbisUI(QMainWindow):
         self._plot_spectrum(fft,sr)
         self._export_json(vol,freq,fft,sr)
 
-    # ──────────────────────────────────────────────────────────────────────────────────
-    #  _plot_spectrum · 3‑segment mapping (1‑20 lin | 20‑5k log | 5k‑20k lin)
-    # ───────────────────────────────────────────────────────────────────────────────
     def _plot_spectrum(self, fft: np.ndarray | None, sr: int) -> None:
         if fft is None or not len(fft):
             return
-
-        # ── puntos clave + tres barras por intervalo
+        import math, numpy as np
+        # ── centros de barra ────────────────────────────────────
         bounds = np.array([1, 20, 50, 100, 250, 500,
-                           1_000, 2_000, 5_000, 10_000,
-                           15_000, 20_000], dtype=float)
+                        1000, 2000, 5000, 10000,
+                        15000, 20000], dtype=float)
         centers = []
         for i in range(1, len(bounds)):
-            prev_, cur_ = bounds[i-1], bounds[i]
-            next_ = bounds[i+1] if i+1 < len(bounds) else cur_**2/prev_
-            centers.extend([math.sqrt(prev_ * cur_), cur_, math.sqrt(cur_ * next_)])
+            a, b = bounds[i-1], bounds[i]
+            c = bounds[i+1] if i+1 < len(bounds) else b**2 / a
+            centers.extend([math.sqrt(a*b), b, math.sqrt(b*c)])
         centers = np.unique(np.round(centers, 4))
-
-        # ── parámetros de los tres tramos
+        # ── mapeo X híbrido (1‑20 lin · 20‑5k log · 5k‑20k lin) ─
         log20, log50 = np.log10(20), np.log10(50)
-        seg0_w       = log50 - log20                  # anchura que igualamos (1‑20 vs 20‑50)
-        x0_offset    = log20 - seg0_w                 # posición de 1 Hz
-
-        log5k        = np.log10(5_000)
-        # factor de “estiramiento” a partir de 5 k (1.6 ≈ 60 % más espacio)
-        hi_factor    = 1.6
-        hi_span      = (np.log10(20_000) - log5k) * hi_factor
-
-        def _f2x(f):
-            f = np.asarray(f, dtype=float)
+        seg0 = log50 - log20
+        x0   = log20 - seg0
+        log5k = np.log10(5000)
+        hi_fac = 1.6
+        hi_span = (np.log10(20000) - log5k) * hi_fac
+        def f2x(f):
+            f = np.asarray(f, float)
             x = np.empty_like(f)
-
-            # tramo 1 – 20 Hz  (lineal)
             m0 = f < 20
-            x[m0] = x0_offset + (f[m0] - 1) / 19 * seg0_w
-
-            # tramo 20 – 5 kHz (log)
-            m1 = (f >= 20) & (f < 5_000)
+            x[m0] = x0 + (f[m0] - 1) / 19 * seg0
+            m1 = (f >= 20) & (f < 5000)
             x[m1] = np.log10(f[m1])
-
-            # tramo 5 – 20 kHz (lineal estirado)
-            m2 = f >= 5_000
-            x[m2] = log5k + (f[m2] - 5_000) / 15_000 * hi_span
+            m2 = f >= 5000
+            x[m2] = log5k + (f[m2] - 5000) / 15000 * hi_span
             return x
-
-        x_pos = _f2x(centers)
-        x_min = x0_offset
-        x_max = _f2x(20_000) + seg0_w * 0.4            # padding extra a la derecha
-
-        # ── magnitudes dB
-        freqs = np.fft.rfftfreq(len(fft)*2-2, 1/sr)
-        mags  = 20*np.log10(np.interp(centers, freqs, fft, left=1e-10, right=1e-10) + 1e-10)
-
-        # ── peak tracking y suavizado
+        x_pos = f2x(centers)
+        x_max = f2x(20000) + seg0 * .4
+        # ── magnitudes dBFS ─────────────────────────────────────
+        freqs = np.fft.rfftfreq(len(fft)*2 - 2, 1 / sr)
+        mags_db = 20 * np.log10(np.interp(centers, freqs, fft,
+                                        left=1e-10, right=1e-10) + 1e-10)
+        # suavizado + picos
         decay = 0.5
         if not hasattr(self, "_peaks"):
-            self._peaks = mags.copy()
-        self._peaks = np.maximum(mags, self._peaks - decay)
-
+            self._peaks = mags_db.copy()
+        self._peaks = np.maximum(mags_db, self._peaks - decay)
         alpha = self.smooth.value() / 100
         if not hasattr(self, "_smooth"):
-            self._smooth = mags.copy()
-        self._smooth = alpha * self._smooth + (1-alpha) * mags
-        smoothed = self._smooth
-
-        # ── preparar plot
-        plt = self.pg.getPlotItem()
-        plt.clear()
-        plt.showGrid(x=True, y=self.chk_grid.isChecked(), alpha=0.3)
-        vb = plt.getViewBox()
-        vb.setLimits(xMin=x_min, xMax=x_max, yMin=-60, yMax=5)
-        plt.setXRange(x_min, x_max, padding=0)
-        plt.setYRange(-60, 0, padding=0)
-
-        # ticks X usando el mismo mapeo
-        ticks = [(_f2x(f), f"{int(f):,}".replace(",", " ")+" Hz") for f in bounds[1:]]
-        plt.getAxis('bottom').setTicks([ticks])
-        plt.getAxis('left').setTicks([[(-i*10, f"-{i*10} dB") for i in range(7)]])
-
-        # ancho barras
-        width = np.min(np.diff(np.sort(x_pos))) * 0.8 if len(x_pos) > 1 else 0.1
-
-        # degradado
+            self._smooth = mags_db.copy()
+        self._smooth = alpha * self._smooth + (1 - alpha) * mags_db
+        sm_db = self._smooth
+        # ── plot ────────────────────────────────────────────────
+        p = self.pg.getPlotItem()
+        p.clear()
+        p.showGrid(x=True, y=self.chk_grid.isChecked(), alpha=.3)
+        vb = p.getViewBox()
+        vb.setLimits(xMin=x0, xMax=x_max, yMin=Y_MIN_DB, yMax=Y_MAX_DB)
+        p.setXRange(x0, x_max, padding=0)
+        p.setYRange(Y_MIN_DB, Y_MAX_DB, padding=0)
+        # ticks
+        p.getAxis('bottom').setTicks([[
+            (f2x(f), f"{int(f):,}".replace(",", " ")+" Hz") for f in bounds[1:]
+        ]])
+        db_ticks = list(range(Y_MAX_DB, Y_MIN_DB - 1, -5))   # +20, +15, …, -40
+        p.getAxis('left').setTicks([[
+            (d, f"{d:+.0f} dB") for d in db_ticks
+        ]])
+        # barras + picos
+        width = np.min(np.diff(np.sort(x_pos))) * .8 if len(x_pos) > 1 else .1
         grad = QLinearGradient(0, 0, 0, 1)
         grad.setCoordinateMode(QGradient.ObjectBoundingMode)
-        grad.setColorAt(0.0, QColor(69, 164, 255, 255))
-        grad.setColorAt(0.5, QColor(155, 77, 255, 160))
-        grad.setColorAt(1.0, QColor(69, 164, 255, 90))
-        brush = QBrush(grad)
-
-        # dibujar
-        plt.addItem(pg.BarGraphItem(x=x_pos, y0=-60, height=smoothed + 60,
-                                    width=width, brush=brush))
+        grad.setColorAt(0,  QColor(69, 164, 255, 255))
+        grad.setColorAt(.5, QColor(155, 77, 255, 160))
+        grad.setColorAt(1,  QColor(69, 164, 255, 90))
+        p.addItem(pg.BarGraphItem(x=x_pos,
+                                y0=Y_MIN_DB,
+                                height=sm_db - Y_MIN_DB,
+                                width=width,
+                                brush=QBrush(grad)))
         if self.chk_peak.isChecked():
-            plt.addItem(pg.ScatterPlotItem(x=x_pos, y=self._peaks,
-                                           pen=None,
-                                           brush=QColor(COLORS['primary']),
-                                           size=5))
-
-        # datos para crosshair
-        self._bar_x    = x_pos
-        self._bar_freq = centers
-        self._vals     = smoothed
-
+            p.addItem(pg.ScatterPlotItem(x=x_pos, y=self._peaks,
+                                        pen=None,
+                                        brush=QColor(COLORS['primary']),
+                                        size=5))
+        # datos tooltip
+        self._bar_x, self._bar_freq = x_pos, centers
+        self._vals_db = sm_db
         if not hasattr(self, "_vline"):
             self._vline = pg.InfiniteLine(angle=90,
-                                          pen=pg.mkPen(COLORS['secondary'], style=Qt.DashLine))
-            self._tip   = pg.TextItem("", anchor=(0.5, 1.2))
+                                        pen=pg.mkPen(COLORS['secondary'],
+                                                    style=Qt.DashLine))
+            self._tip = pg.TextItem("", anchor=(.5, 1.2))
             self._tip.setDefaultTextColor(Qt.white)
             self.pg.addItem(self._vline, ignoreBounds=True)
             self.pg.addItem(self._tip)
             pg.SignalProxy(self.pg.scene().sigMouseMoved,
-                           rateLimit=60,
-                           slot=self._mouse_move)
+                        rateLimit=60, slot=self._mouse_move)
 
-    # ──────────────────────────────────────────────────────────────
-    #  mouse‑move sin cambios lógicos (usa _bar_x)
-    # ──────────────────────────────────────────────────────────────
     def _mouse_move(self, ev):
         pos = ev[0]
         if not self.pg.sceneBoundingRect().contains(pos):
             self._tip.setText("")
             return
-
         view = self.pg.getPlotItem().vb.mapSceneToView(pos)
-        idx  = int(np.argmin(np.abs(self._bar_x - view.x())))
+        idx = int(np.argmin(np.abs(self._bar_x - view.x())))
         self._vline.setPos(self._bar_x[idx])
-
         freq = self._bar_freq[idx]
-        db   = self._vals[idx]
-        self._tip.setText(f"{freq:.0f} Hz\n{db:.1f} dB")
-        self._tip.setPos(self._bar_x[idx], db + 2)
+        db = self._vals_db[idx]
+        self._tip.setText(f"{freq:.0f} Hz\n{db:+.1f} dB")
+        self._tip.setPos(self._bar_x[idx], db + 1)
 
-    def _set_metric(self,label,val):
-        lab,bar=self.metrics[label]
-        lab.setText(f"{val:.1f} dB" if "Level" in label else f"{val:.1f} LUFS")
-        bar.setFixedWidth(int(max(0,min(1,(val+60)/60))*150))
+    def _set_metric(self, label: str, val: float):
+        lab, bar = self.metrics[label]
+        span = Y_MAX_DB - Y_MIN_DB            # 60 dB
+        pct = max(0, min(1, (val - Y_MIN_DB) / span))
+        bar.setFixedWidth(int(pct * 150))
+        lab.setText(f"{val:+.1f} dB" if "Level" in label else f"{val:+.1f} LUFS")
+
+
+
+
     def _export_json(self,vol,freq,fft,sr):
         JSON_PATH.parent.mkdir(exist_ok=True)
         data=dict(volume=round(vol,2),dominant_freq=round(freq,2),version=VERSION)
