@@ -1,80 +1,113 @@
-#Librerías necesarias.
+"""
+audio_analyzer.py  – safe‑fallback version
+• If a device called “Stereo Mix” exists, use it.
+• Otherwise leave PortAudio’s default input unchanged.
+• You can still pass an explicit `device` index/name from the UI.
+"""
+
+import warnings
+import threading
+from typing import Any, Dict, Optional
+
 import numpy as np
 import sounddevice as sd
-import threading
+from sounddevice import PortAudioError   # only used for caller-side handling
 
-#Establecemos la entrada de audio como la salida del pc
-sd.default.device = ("Stereo Mix", None)  # entrada, salida
-devices = sd.query_devices()
-for i, d in enumerate(devices):
-    if "Stereo Mix" in d['name']:
-        print(f"Usando dispositivo: {d['name']} (index: {i})")
-        sd.default.device = i
-        break
 
-#Creamos las clase encargada de analizar el audio.
+# ---------------------------------------------------------------------------
+# Prefer “Stereo Mix”, but don’t crash if it isn’t there
+# ---------------------------------------------------------------------------
+preferred = next(
+    (i for i, d in enumerate(sd.query_devices()) if "Stereo Mix" in d["name"]),
+    None,
+)
+
+if preferred is not None:
+    sd.default.device = (preferred, None)      # (input, output) tuple
+    print(f"✓ Using input device: Stereo Mix  (index {preferred})")
+else:
+    warnings.warn("Stereo Mix not found – using system‑default input device")
+
+
+# ---------------------------------------------------------------------------
 class AudioAnalyzer:
-    def __init__(self, sample_rate=44100, chunk_size=8192, device=None): #sample rate es la frecuencia de muestreo y chunk_size es el tamaño del bloque de audio.
+    """
+    Real‑time audio capture + basic FFT analyser.
+    Call start() / stop(), then read get_audio_data().
+    """
+
+    def __init__(
+        self,
+        sample_rate: int = 44100,
+        chunk_size: int = 8192,
+        device: Optional[int | str] = None,
+    ):
         self.sample_rate = sample_rate
-        self.chunk_size = chunk_size
-        self.device = device 
-        
+        self.chunk_size  = chunk_size
+        self.device      = device            # may be None → use default
 
-        self.volume = 0.0
-        self.dominant_freq = 0.0
-        self.fft_data = []
+        # shared state
+        self.volume         = 0.0
+        self.dominant_freq  = 0.0
+        self.fft_data: list[float] = []
 
-        self._stream = sd.InputStream(callback=self._callback,
-                              channels=1,
-                              samplerate=self.sample_rate,
-                              blocksize=self.chunk_size,
-                              device=self.device)
+        # open PortAudio stream (caller may need to catch PortAudioError)
+        self._stream = sd.InputStream(
+            callback=self._callback,
+            channels=1,
+            samplerate=self.sample_rate,
+            blocksize=self.chunk_size,
+            device=self.device,
+        )
 
-        self._thread = threading.Thread(target=self._stream.start)
-        self._thread.daemon = True
+        self._thread = threading.Thread(target=self._stream.start, daemon=True)
 
+    # -----------------------------------------------------------------------
+    # PortAudio callback – runs in its own thread
+    # -----------------------------------------------------------------------
     def _callback(self, indata, frames, time, status):
         signal = indata[:, 0]
-        
-        # Volumen en dB
-        rms = np.sqrt(np.mean(signal**2))
+
+        # --- volume (RMS → dBFS) ------------------------------------------
+        rms       = np.sqrt(np.mean(signal ** 2))
         self.volume = 20 * np.log10(max(rms, 1e-10))
-        
-        # Aplicar ventana de Hanning
+
+        # --- FFT with Hann window -----------------------------------------
         window = np.hanning(len(signal))
-        windowed_signal = signal * window
-        
-        # FFT
-        fft = np.abs(np.fft.rfft(windowed_signal))
+        windowed = signal * window
+        fft      = np.abs(np.fft.rfft(windowed))
         self.fft_data = fft
-        
-        # Interpolación parabólica para mejor precisión del pico
-        peak_bin = np.argmax(fft)
-        
+
+        # --- dominant frequency (parabolic interp for sub‑bin accuracy) ----
+        peak_bin = int(np.argmax(fft))
+
         if 1 <= peak_bin < len(fft) - 1:
-            alpha = fft[peak_bin - 1]
-            beta = fft[peak_bin]
-            gamma = fft[peak_bin + 1]
-        
+            alpha, beta, gamma = fft[peak_bin - 1 : peak_bin + 2]
             p = 0.5 * (alpha - gamma) / (alpha - 2 * beta + gamma)
-            peak_bin += p  # desplazamiento fraccional del pico
-        
-        # Cálculo de frecuencia dominante
+            peak_bin += p                                         # fractional shift
+
         self.dominant_freq = peak_bin * self.sample_rate / self.chunk_size
-        
-    def start(self):
+
+    # -----------------------------------------------------------------------
+    # public helpers
+    # -----------------------------------------------------------------------
+    def start(self) -> None:
+        """Begin capturing (non‑blocking)."""
         self._thread.start()
 
-    def stop(self):
+    def stop(self) -> None:
+        """Gracefully stop the PortAudio stream."""
         try:
             self._stream.stop()
             self._stream.close()
-        except Exception as e:
-            print("Error al detener el stream:", e)
+        except Exception as exc:
+            print("AudioAnalyzer › error while stopping stream:", exc)
 
-    def get_audio_data(self):
-        return{
-            "volume":self.volume,
-            "dominant_freq":self.dominant_freq,
-            "fft":self.fft_data
+    def get_audio_data(self) -> Dict[str, Any]:
+        """Return the latest analysis snapshot."""
+        return {
+            "volume": self.volume,
+            "dominant_freq": self.dominant_freq,
+            "fft": self.fft_data,
+            "sample_rate": self.sample_rate,
         }
