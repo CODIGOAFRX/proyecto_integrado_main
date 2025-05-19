@@ -115,13 +115,13 @@ def update_geometry_nodes():
             return
 
         ng = mod.node_group
-
+        mod["Freq"] = 440.0
         # --- Valores “clásicos” ---------------------------------------
         if INPUT_VOL in ng.inputs:
             ng.inputs[INPUT_VOL].default_value = last_data.get("volume", 0.0)
 
-        if INPUT_FREQ in ng.inputs:
-            ng.inputs[INPUT_FREQ].default_value = last_data.get("dominant_freq", 0.0)
+        if INPUT_FREQ in mod:
+            mod[INPUT_FREQ] = last_data.get("dominant_freq", 0.0)
 
         for band, socket_name in SPECTRUM_BANDS.items():
             if socket_name in ng.inputs:
@@ -165,7 +165,7 @@ def refresh_loop():
         if refresh_active:
             try:
                 if os.path.exists(JSON_PATH):
-                    print(f"[Orbis] JSON leído correctamente: {JSON_PATH}")
+                    #print(f"[Orbis] JSON leído correctamente: {JSON_PATH}")
                     with open(JSON_PATH, "r") as f:
                         data = json.load(f)
                     last_data["bal_lh"]      = float(data.get("bal_lh", 0.0))
@@ -224,7 +224,7 @@ def stop_thread():
     global _orbis_thread_running
     _orbis_thread_running = False
 
-class ORBIS_OT_toggle_pause(bpy.types.Operator):
+class ORBIS_OT_toggle_pause(bpy.types.Operator): 
     bl_idname = "orbis.toggle_pause"
     bl_label = "⏯️ Pausar/Continuar"
 
