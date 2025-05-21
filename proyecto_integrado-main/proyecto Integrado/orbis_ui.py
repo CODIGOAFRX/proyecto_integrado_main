@@ -23,7 +23,8 @@ from __future__ import annotations
 import sys, time, math, json, warnings
 from pathlib import Path
 import numpy as np, psutil, sounddevice as sd
-
+from PySide6.QtCore import Property, Signal
+from PySide6.QtGui  import QPixmap, QPixmapCache, QPainter
 # ── PySide6 ────────────────────────────────────────────────────────────────
 from PySide6.QtCore    import Qt, QTimer, QPointF, QEasingCurve, QPropertyAnimation, QRectF
 from PySide6.QtGui     import (QColor, QPainter, QPen, QBrush, QFont, QFontDatabase,
@@ -50,7 +51,10 @@ JSON_PATH = BASE_DIR / "json" / "orbis_data.json"
 LOGO_PATH = IMG_DIR / "orbis_logo.png"        # encabezado
 ICON_PATH = IMG_DIR / "orbis_icon.ico"        # icono app / task‑bar
 VERSION   = "v0.9‑beta"
-
+METRIC_LABELS = ("Peak Level",
+                 "RMS Level",
+                 "Integrated LUFS",
+                 "Short-term LUFS")
 Y_MIN_DB = -40     # fondo del gráfico
 Y_MAX_DB =  30     # head‑room visible
 COLORS = dict(bg="#121212", panel="#1E1E1E", border="#2D2D2D", text="#E0E0E0",
@@ -77,23 +81,48 @@ except ImportError:                       # sin PyOpenGL → canvas vacío
         def paintEvent(self,_): pass
 
 class OrbWidget(QWidget):
-    def __init__(self,parent=None):
+    levelChanged = Signal(int)            # por si te sirve a futuro
+
+    FRAMES_DIR = BASE_DIR / "resources" / "images" / "orb_frames"  # <— usa tu ruta
+
+    def __init__(self, parent=None):
         super().__init__(parent)
-        self.volume=-60.0; self.freq=1000.0
-        self.setAttribute(Qt.WA_TranslucentBackground,True)
-        self.setAttribute(Qt.WA_TransparentForMouseEvents,True)
-    def update_data(self,vol:float,freq:float):
-        self.volume,self.freq=vol,freq; self.update()
-    def paintEvent(self,_):
-        p=QPainter(self); p.setRenderHint(QPainter.Antialiasing)
-        scale=max(.2,min(1.5,(self.volume+60)/40))
-        shape=max(.5,min(1.5,(10_000-self.freq)/9000))
-        w,h=self.width()*scale*shape*.5, self.height()*scale*(2-shape)*.5
-        x,y=(self.width()-w)/2,(self.height()-h)/2
-        g=QRadialGradient(self.rect().center(),max(w,h))
-        g.setColorAt(0,QColor(69,164,255,235)); g.setColorAt(.8,QColor(155,77,255,70))
-        g.setColorAt(1,Qt.transparent)
-        p.setBrush(QBrush(g)); p.setPen(Qt.NoPen); p.drawEllipse(x,y,w,h)
+        self._level = 16                  # 16 = base
+        self.setAttribute(Qt.WA_TranslucentBackground, True)
+        self.setAttribute(Qt.WA_TransparentForMouseEvents, True)
+
+    # --------------------- Qt Property -------------------------------
+    def get_level(self):         return self._level
+    def set_level(self, val: int):
+        val = max(1, min(31, int(round(val))))
+        if val != self._level:
+            self._level = val
+            self.update()
+            self.levelChanged.emit(val)
+    level = Property(int, get_level, set_level)
+
+    # --------------------- Helpers -----------------------------------
+    def _load_pixmap(self, idx: int) -> QPixmap:
+        key = f"orb{idx:02d}"
+        pm  = QPixmap()
+        if not QPixmapCache.find(key, pm):
+            pm = QPixmap(str(self.FRAMES_DIR / f"orb_{idx:02d}.png"))
+            QPixmapCache.insert(key, pm)
+        return pm
+
+    # --------------------- Paint -------------------------------------
+    def paintEvent(self, _):
+        pm = self._load_pixmap(self._level)
+        if pm.isNull():
+            return                        # nombre mal o ruta vacía
+        p = QPainter(self)
+        p.setRenderHint(QPainter.SmoothPixmapTransform)
+        side = min(self.width(), self.height()) * 1.8
+        pm   = pm.scaled(side, side, Qt.KeepAspectRatio,
+                         Qt.SmoothTransformation)
+        x = (self.width()  - pm.width())  / 2
+        y = (self.height() - pm.height()) / 2
+        p.drawPixmap(int(x), int(y), pm)
 
 class VisualizationWidget(QWidget):
     """Wave | Spectrogram | Orbe (spectrum/shape) + controles de zoom"""
@@ -132,7 +161,7 @@ class VisualizationWidget(QWidget):
         p.setPen(QPen(QColor(69,164,255,25)))
         for gx in range(0,self.width(),20): p.drawLine(gx,0,gx,self.height())
         for gy in range(0,self.height(),20): p.drawLine(0,gy,self.width(),gy)
-        r=min(self.width(),self.height())*.25; c=self.rect().center()
+        r=min(self.width(),self.height())*.45; c=self.rect().center()
         pts=[QPointF(c.x()+r*math.cos(math.pi/3*i), c.y()+r*math.sin(math.pi/3*i)) for i in range(6)]
         p.setPen(QPen(QColor(69,164,255,80),1))
         g=QRadialGradient(c,r); g.setColorAt(0,QColor(69,164,255,13)); g.setColorAt(1,COLORS['bg'])
@@ -159,7 +188,14 @@ class VisualizationWidget(QWidget):
 class OrbisUI(QMainWindow):
     def __init__(self,analyzer:AudioAnalyzer):
         super().__init__()
-        self.analyzer=analyzer; self.running=False; self.current_mode="wave"
+        self.analyzer=analyzer; self.running=False; 
+        # ── estado del orbe -------------------------------------------------
+        self._breath_seq = [16,17,18,19,18,17,16,15,14,13,14,15]   # patrón base
+        self._breath_idx = 0
+        self._target_idx = 16
+        self._idle_timer = QTimer(interval=120, timeout=self._advance_idle)
+        self._idle_timer.start()
+        self.current_mode="wave"
         self._fonts(); self._style(); self._build(); self._timers()
         self.setWindowTitle(f"ORBIS – Frequency‑Driven 3D Visualizer {VERSION}")
         if ICON_PATH.exists():
@@ -268,7 +304,7 @@ class OrbisUI(QMainWindow):
     # METRICS -------------------------------------------------------------
     def _panel_metrics(self):
         gb=QGroupBox("Audio Metrics"); v=QVBoxLayout(gb); self.metrics={}
-        for lab in ("Peak Level","RMS Level","Integrated LUFS","Short‑term LUFS"):
+        for lab in METRIC_LABELS:
             box=QWidget(); bl=QVBoxLayout(box); bl.setContentsMargins(0,0,0,0)
             hl=QHBoxLayout(); hl.addWidget(QLabel(lab))
             val=QLabel("‑‑‑",font=QFont("Orbitron",12)); val.setStyleSheet(f"color:{COLORS['cyan']}"); hl.addWidget(val)
@@ -277,6 +313,7 @@ class OrbisUI(QMainWindow):
             bar=QWidget(bg); bar.setGeometry(0,0,0,6)
             bar.setStyleSheet("background:linear-gradient(90deg,#45A4FF,#9B4DFF);border-radius:3px")
             bl.addWidget(bg); v.addWidget(box); self.metrics[lab]=(val,bar)
+            self.metrics[lab] = (val, bar)
         fa=QGroupBox("Frequency Analysis"); g=QGridLayout(fa); self.band_lbl={}
         for i,(txt,key) in enumerate([("Low (20‑250Hz)","low"),("Mid (250‑2kHz)","mid"),
                                       ("High (2k‑20kHz)","high"),("Dominant Freq","dom")]):
@@ -317,36 +354,76 @@ class OrbisUI(QMainWindow):
     # ────────────────────────────────────────────────────────────────────
     # LOOP
     # ────────────────────────────────────────────────────────────────────
+    # ───────────────────────────────────────────────────────────────────
     def _tick(self):
-        if not self.running: return
-        d=self.analyzer.get_audio_data() or {}
-        vol=float(d.get("volume",-60)); freq=float(d.get("dominant_freq",0))
-        fft=d.get("fft"); sr=int(d.get("sample_rate",48000))
-        # métricas
-        for lab,off in [("Peak Level",0),("RMS Level",-6),
-                        ("Integrated LUFS",-1),("Short‑term LUFS",1)]:
-            self._set_metric(lab,vol+off)
-        # bandas / orbe / waveform / spectro
-        if fft is not None and len(fft):
-            f=np.fft.rfftfreq(len(fft)*2-2,1/sr)
-            def band(a,b):
-                idx=np.where((f>=a)&(f<b))[0]
-                return 20*np.log10(np.mean(fft[idx])+1e-10) if len(idx) else -60
-            self.band_lbl["low"].setText(f"{band(20,250):.1f} dB")
-            self.band_lbl["mid"].setText(f"{band(250,2000):.1f} dB")
-            self.band_lbl["high"].setText(f"{band(2000,20000):.1f} dB")
-            self.band_lbl["dom"].setText(f"{freq:.0f} Hz")
-        if self.current_mode=="wave":
-            self.vis.wave_buf=np.roll(self.vis.wave_buf,-1); self.vis.wave_buf[-1]=vol
+        if not self.running:
+            return
+
+        # --------- datos crudos de AudioAnalyzer -----------------------
+        d   = self.analyzer.get_audio_data() or {}
+        vol = float(d.get("volume", -60.0))
+        freq= float(d.get("dominant_freq", 0.0))
+        fft = d.get("fft")
+        sr  = int(d.get("sample_rate", 48000))
+
+        # --------- helper dB por banda ---------------------------------
+        def band(lo: float, hi: float) -> float:
+            if fft is None or not len(fft):
+                return -60.0
+            f_axis = np.fft.rfftfreq(len(fft)*2 - 2, 1/sr)
+            sel = (f_axis >= lo) & (f_axis < hi)
+            return 20*np.log10(np.mean(fft[sel]) + 1e-10) if np.any(sel) else -60.0
+        def peak_db(lo: float, hi: float) -> float:
+            """Devuelve el pico dBFS en el rango lo-hi Hz."""
+            if fft is None or not len(fft):
+                return -60.0
+            f_axis = np.fft.rfftfreq(len(fft)*2 - 2, 1/sr)
+            sel = (f_axis >= lo) & (f_axis < hi)
+            if not np.any(sel):
+                return -60.0
+            return 20*np.log10(np.max(fft[sel]) + 1e-10)
+
+        # --------- métricas globales (Peak, RMS, etc.) -----------------
+        for lab, off in zip(METRIC_LABELS, (0, -6, -1, 1)):
+            self._set_metric(lab, vol + off)
+
+        # --------- bandas Low / Mid / High -----------------------------
+        low_dB  = peak_db(20,   250)
+        mid_dB  = peak_db(250,  5000)
+        high_dB = peak_db(5000, 20000)
+
+        self.band_lbl["low"].setText(f"{low_dB:+.1f} dB")
+        self.band_lbl["mid"].setText(f"{mid_dB:+.1f} dB")
+        self.band_lbl["high"].setText(f"{high_dB:+.1f} dB")
+        self.band_lbl["dom"].setText(f"{freq:.0f} Hz")
+
+        # --------- decide destino del orbe y anima ---------------------
+        self._update_target_from_audio(low_dB, mid_dB, high_dB)
+        self._advance_idle()                   # SIEMPRE, esté o no visible
+
+        # --------- waveform -------------------------------------------------
+        if self.current_mode == "wave":
+            self.vis.wave_buf = np.roll(self.vis.wave_buf, -1)
+            self.vis.wave_buf[-1] = vol
             self.vis.wave_curve.setData(self.vis.wave_buf)
-        if self.current_mode=="spec" and fft is not None:
-            mags=20*np.log10(fft+1e-10)+60
-            slice_=np.interp(np.linspace(0,len(mags)-1,128),np.arange(len(mags)),mags)
-            self.vis.spec_data=np.roll(self.vis.spec_data,-1,axis=1); self.vis.spec_data[:,-1]=slice_
-            self.vis.spec_img.setImage(self.vis.spec_data,levels=(0,60),autoLevels=False)
-        if self.current_mode in ("shape","spectrum"): self.vis.orb.update_data(vol,freq)
-        self._plot_spectrum(fft,sr)
-        self._export_json(vol,freq,fft,sr)
+
+        # --------- espectrograma -------------------------------------------
+        if self.current_mode == "spec" and fft is not None:
+            mags   = 20*np.log10(fft + 1e-10) + 60
+            slice_ = np.interp(np.linspace(0, len(mags)-1, 128),
+                            np.arange(len(mags)), mags)
+            self.vis.spec_data  = np.roll(self.vis.spec_data, -1, axis=1)
+            self.vis.spec_data[:, -1] = slice_
+            self.vis.spec_img.setImage(self.vis.spec_data,
+                                    levels=(0, 60), autoLevels=False)
+
+        # --------- FFT gráfico de barras (panel inferior) -------------------
+        self._plot_spectrum(fft, sr)
+
+        # --------- export JSON para Blender ---------------------------------
+        self._export_json(vol, freq, fft, sr,
+                        extra=dict(low=low_dB, mid=mid_dB, high=high_dB))
+
 
     def _plot_spectrum(self, fft: np.ndarray | None, sr: int) -> None:
         if fft is None or not len(fft):
@@ -465,9 +542,14 @@ class OrbisUI(QMainWindow):
 
 
 
-    def _export_json(self,vol,freq,fft,sr):
+    def _export_json(self, vol, freq, fft, sr, extra: dict | None = None):
         JSON_PATH.parent.mkdir(exist_ok=True)
-        data=dict(volume=round(vol,2),dominant_freq=round(freq,2),version=VERSION)
+        data = dict(volume=round(vol, 2),
+                    dominant_freq=round(freq, 2),
+                    version=VERSION)
+        
+        if extra:                      # <-- nueva línea
+            data.update(extra)         # <--
         if fft is not None and len(fft):
             f=np.fft.rfftfreq(len(fft)*2-2,1/sr); spec={}
             for t in (20,50,100,250,500,1000,2000,5000,10000,15000,20000):
@@ -509,6 +591,65 @@ class OrbisUI(QMainWindow):
             sr=int(d['default_samplerate']); buf=int(d['default_low_input_latency']*sr)
         except Exception: sr=buf=0
         self.lbl_buf.setText(f"Buffer {buf}"); self.lbl_sr.setText(f"Sample Rate {sr} Hz")
+    def _advance_idle(self):
+        orb = self.vis.orb
+
+        # 1) si ya estamos en el destino → respira con el patrón actual
+        if orb.level == self._target_idx:
+            self._breath_idx = (self._breath_idx + 1) % len(self._breath_seq)
+            orb.set_level(self._breath_seq[self._breath_idx])
+            return
+
+        # 2) si no, muévete un PNG hacia el destino
+        step = 1 if self._target_idx > orb.level else -1
+        orb.set_level(orb.level + step)
+    def _update_target_from_audio(self, low, mid, high):
+        """
+        Decide self._target_idx según la diferencia de bandas.
+        """
+        BIG = 10      # MUCHO
+        MED = 6       # MEDIANO
+        SMALL = 3     # LIGERO
+
+        # diferencias
+        dom_low  = low  - max(mid, high)
+        dom_high = high - max(mid, low)
+        dom_mid  = mid  - max(low, high)
+
+
+        # --- graves dominan -------------------------------------------------
+        if dom_low > BIG:
+            self._target_idx = 31
+        elif dom_low > MED:
+            self._target_idx = 27
+        elif dom_low > SMALL:
+            self._target_idx = 23
+
+        # --- agudos dominan -------------------------------------------------
+        elif dom_high > BIG:
+            self._target_idx = 1
+        elif dom_high > MED:
+            self._target_idx = 5
+        elif dom_high > SMALL:
+            self._target_idx = 9
+
+        # --- medios dominan o equilibrio -----------------------------------
+        else:
+            self._target_idx = 16
+
+        # cambia patrón de respiración en extremos
+        if self._target_idx in (31,27,23):
+            self._breath_seq = [self._target_idx,
+                                self._target_idx-2,
+                                self._target_idx,
+                                self._target_idx-2]
+        elif self._target_idx in (1,5,9):
+            self._breath_seq = [self._target_idx,
+                                self._target_idx+2,
+                                self._target_idx,
+                                self._target_idx+2]
+        else:
+            self._breath_seq = [16,17,18,19,18,17,16,15,14,13,14,15]
 
 # ════════════════════════════════════════════════════════════════════════════
 if __name__=="__main__":
