@@ -1,46 +1,133 @@
-# ─────────────────────────────────────────────────────────────────────────────
-# ORBIS – Frequency‑Driven 3D Visualizer  ·  v0.9‑beta
-#
-# Proyecto Fin de Grado · MEDAC NEVADA · 2024‑25
-# -----------------------------------------------------
-# Integrantes del equipo ORBIS:
-#   · Pedro Jesús Gómez Pérez  –  Arquitectura DSP & back‑end de audio, Diseño UI / UX y desarrollo PySide 6 en estado alpha
-#   · David Erik García Arenas  – Integración 3D con Blender & shaders, Diseño UI / UX y desarrollo PySide 6 en estado beta
-#
-# Cambios más relevantes de esta revisión (0.9‑beta → mock‑up parity):
-#   1. Tokens de color / tipografía calcados del CSS Tailwind del prototipo.
-#   2. Botón “Start Analysis” con halo neón + pequeño “ripple” al hacer click.
-#   3. Deslizadores y check‑boxes estilizados (track degradado, knob cian, etc.).
-#   4. Footer y encabezado con versión dinámica y logo.
-#   5. Docstrings y comentarios en castellano para facilitar lectura al tribunal.
-#   6. Se mantienen: zoom‑in/out, reset, fullscreen y captura PNG del espectro.
-#
-# Estado general · Por qué seguimos en *beta*:
-#   El add‑on de Blender ya recibe JSON en tiempo real, pero la malla todavía no
-#   reacciona a los datos FFT/LUFS. Cuando eso funcione pasaremos a v1.0‑rc.
-# ─────────────────────────────────────────────────────────────────────────────
-from __future__ import annotations
-import sys, time, math, json, warnings
-from pathlib import Path
-import numpy as np, psutil, sounddevice as sd
-from PySide6.QtCore import Property, Signal
-from PySide6.QtGui  import QPixmap, QPixmapCache, QPainter
-# ── PySide6 ────────────────────────────────────────────────────────────────
-from PySide6.QtCore    import Qt, QTimer, QPointF, QEasingCurve, QPropertyAnimation, QRectF
-from PySide6.QtGui     import (QColor, QPainter, QPen, QBrush, QFont, QFontDatabase,
-                               QRadialGradient, QLinearGradient, QPolygonF, QGradient,
-                               QPixmap, QIcon, QGuiApplication)
-from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-                               QGridLayout, QLabel, QPushButton, QComboBox, QSlider,
-                               QCheckBox, QGroupBox, QStatusBar, QToolButton,
-                               QGraphicsDropShadowEffect)
-from PySide6.QtOpenGLWidgets import QOpenGLWidget
+'''
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+    ORBIS – Frequency-Driven 3D Visualizer
+    Version: v1.0.0-alpha (2025-05-22 build)
+    Proyecto Fin de Grado · MEDAC NEVADA · 2024‑25
+    Integrantes del equipo ORBIS:
+    · Pedro Jesús Gómez Pérez – Arquitectura DSP & back‑end de audio, Diseño UI / UX y desarrollo PySide 6 en estado alpha
+    · David Erik García Arenas – Integración 3D con Blender & shaders, Diseño UI / UX y desarrollo PySide 6 en estado beta
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+    CHANGELOG completo hasta v1.0.0-alpha
 
-# ── PyQtGraph ───────────────────────────────────────────────────────────────
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+    v0.9.1 – Smooth UI
+    - PreciseTimer + linear interpolation → butter-smooth motion.
+    - Moving-average FPS read-out tied to the user cap (30-240, monitor, ±360).
+    - “Unlimited” is capped to MAX_FPS_HW to avoid runaway 10 000 fps.
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+    2025-05-15 build – (v0.9.5-beta)
+    - Smooth UI: selectable refresh-rates (30/60/120/240 Hz, monitor native, unlimited) – live-switch via Settings.
+    - OpenGL sphere (or coloured cube fallback) visible in “3-D Shape”.
+    - All earlier bug-fixes (Qt6 mouse events, font warnings, JSON safety…).
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+    v0.9.7-beta (2025-05-16 build) – Mock-up parity
+    - Adds “Load Model…” & “Generate” controls (exclusive to 3-D Shape mode).
+    - VBO offsets fixed (ctypes.c_void_p) → mesh now renders.
+    - “Generate” (icosphere) corregido.
+    - Loader OBJ genera normales si faltan.
+    - LED ● Live verde/rojo.
+    - FPS se muestra siempre.
+    - Triple-buffer + frameSwapped → pacing suave, sin tirones a 30 fps.
+    - Tokens de color/tipografía calcados del CSS Tailwind del prototipo.
+    - Botón “Start Analysis” con halo neón + pequeño “ripple” al hacer click.
+    - Deslizadores y checkboxes estilizados (track degradado, knob cian).
+    - Footer y encabezado con versión dinámica y logo.
+    - Docstrings y comentarios en castellano para facilitar lectura al tribunal.
+    - Zoom-in/out, reset, fullscreen y captura PNG del espectro mantenidos.
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+    v0.9.8-beta (2025-05-19 build)
+    - Mesh finalmente renderiza (OBJ por defecto o icosfera generada).
+    - Waveform/spectrum actualizan nuevamente, removido _tick_ui duplicado.
+    - Visualización se oculta cuando se detiene el análisis.
+    - Contador FPS siempre visible.
+    - Botones ‘Load Model…’ / ‘Generate’ rediseñados.
+    - Triple-buffer + vsync (swap-interval 1) para suavidad constante.
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+    v0.9.9-beta (2025-05-20 build)
+    - FIX: Error NumPy “ambiguous truth value” cuando d.get("fft") devuelve ndarray.
+    - Exportación JSON contiene todas las claves requeridas por el add-on Blender:
+    - volume · dominant_freq · bal_lh · bal_mid
+    - dev_low · dev_lowmid · dev_mid · dev_himid · dev_high
+    - Espectro de 12 bandas (20 Hz → 20 kHz)
+    - version · timestamp
+    - Lógica de waveform/spectrogram intacta, código completo incluido.
+    - Malla renderiza correctamente (OBJ + icosfera), visualización oculta al detener análisis.
+    - Triple-buffer vsync (swap-interval 1) activado → pacing fluido.
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ ###  🔖 Versión actual: v1.0.0-alpha (2025-05-22 build) ###
+    Importante: Primera versión plenamente funcional, lista para presentación inicial al tribunal.
+    Continúan placeholders y stubs internos para futuras mejoras posteriores al prototipo.
+
+    Cambios y mejoras clave de esta versión:
+    - Corrección crítica: solucionado error TypeError en update_audio().
+
+    - Botón "Launch 3-D Viewer" aparece exclusivamente en modo 3-D Shape con padding y dimensiones corregidas.
+
+    - Botón "Capture" corregido (dimensiones adecuadas y totalmente visible).
+
+    - Indicador "Live" LED cambia adecuadamente entre rojo/verde al iniciar/detener análisis.
+
+    - Diálogo Settings incorpora checkbox para opción "Always on top".
+
+    - Ventana ahora soporta opcionalmente comportamiento de mantenerse siempre encima.
+
+    - Texto overlay informativo solo visible en modo 3-D Shape.
+
+    - Controles legacy OpenGL se conservan en código, pero se ocultan visualmente para evitar confusión.
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+    📍 Estado general actual (v1.0.0-alpha)
+    El proyecto cumple objetivos técnicos planteados en fase prototipo.
+
+    Integración completa del visualizador 3D externo Baryon vía navegador (placeholder para futura implementación interna).
+
+    Exportación JSON robusta y compatible con Blender.
+
+    Estructura técnica estable para presentación oficial ante tribunal.
+
+    Próximos pasos para avanzar a v1.0.0-beta y release candidate (rc):
+
+    Finalizar integración directa 3D interna (eliminar stubs OpenGL).
+
+    Implementar correctamente controles: Frequency Range, Resolution y Sensitivity.
+
+    Pulir interfaz final y optimizar UX/UI basándose en feedback del tribunal.
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+    📝 Licencia
+    Public-domain / CC0. El proyecto entero permanece abierto para futuras colaboraciones académicas y profesionales.
+    '''
+
+import sys, time, math, json, warnings, ctypes
+from pathlib import Path
+from collections import deque
+from types import SimpleNamespace
+
+# External helpers
+from visualizers.launch_baryon import launch as launch_baryon
+from audio_analyzer           import AudioAnalyzer
+from mesh_utils               import load_obj, create_icosphere
+
+# ───── Qt / PySide6 ─────────────────────────────────────────────────────────
+from PySide6.QtCore    import (
+    Qt, QTimer, QElapsedTimer, QEasingCurve, QPropertyAnimation, QPointF,
+    Property, Signal
+)
+from PySide6.QtGui     import (
+    QColor, QPainter, QPen, QBrush, QFont, QFontDatabase,
+    QRadialGradient, QLinearGradient, QGradient, QPixmap, QPixmapCache, QIcon,
+    QGuiApplication, QSurfaceFormat, QPolygonF
+)
+from PySide6.QtWidgets import (
+    QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QGridLayout,
+    QLabel, QPushButton, QComboBox, QSlider, QCheckBox, QGroupBox, QStatusBar,
+    QToolButton, QGraphicsDropShadowEffect, QDialog, QDialogButtonBox,
+    QFileDialog, QMessageBox
+)
+from PySide6.QtOpenGLWidgets import QOpenGLWidget
 import pyqtgraph as pg
 
-#  Analizador de audio
-from audio_analyzer import AudioAnalyzer
+import numpy as np
+import psutil, sounddevice as sd
+import pyloudnorm
 
 # ── Rutas & constantes ──────────────────────────────────────────────────────
 BASE_DIR  = Path(__file__).resolve().parent
@@ -291,6 +378,26 @@ class OrbisUI(QMainWindow):
     def _panel_viz(self):
         gb=QGroupBox(); v=QVBoxLayout(gb)
         hl=QHBoxLayout(); hl.addWidget(QLabel("Real‑time Visualization",font=QFont("Orbitron",12)))
+        # --- Launch 3-D Viewer -------------------------------------------------
+        self.btn_baryon = QPushButton("Launch 3-D Viewer")
+        self.btn_baryon.setFixedSize(140, 28)              
+        self.btn_baryon.setStyleSheet(
+            f"QPushButton{{"
+            f"border:1px solid {COLORS['primary']}80;"
+            f"border-radius:14px;"
+            f"background:{COLORS['panel']};"
+            f"color:{COLORS['primary']};"
+            f"padding:2px 16px;"
+            f"}}"
+            f"QPushButton:hover{{"
+            f"border-color:{COLORS['secondary']}a0;"
+            f"color:{COLORS['secondary']};"
+            f"}}"
+        )
+        self.btn_baryon.clicked.connect(self._open_baryon)
+        hl.addWidget(self.btn_baryon)
+        # ----------------------------------------------------------------------
+
         hl.addWidget(QLabel("● Live",styleSheet=f"color:{COLORS['primary']};font-size:11px"))
         hl.addStretch(); hl.addWidget(QLabel("Auto‑rotate",styleSheet="font-size:11px"))
         hl.addWidget(QCheckBox(checked=True)); v.addLayout(hl)
@@ -560,6 +667,12 @@ class OrbisUI(QMainWindow):
         CAPT_DIR.mkdir(exist_ok=True)
         path=CAPT_DIR/f"spectrum_{time.strftime('%Y%m%d_%H%M%S')}.png"
         self.pg.grab().save(str(path)); self.statusBar().showMessage(f"✔ saved {path.name}",5000)
+    # Lanza el visor Baryon en el navegador
+    def _open_baryon(self):
+        if launch_baryon(force_local=False, ask=True):
+            self.btn_baryon.setText("Launched ✔")
+        else:
+            self.btn_baryon.setText("Retry 3-D Viewer")
     # stream
     def _toggle_stream(self):
         if self.running:
