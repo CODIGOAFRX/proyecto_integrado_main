@@ -1,26 +1,26 @@
 '''
 ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-    ORBIS – Frequency-Driven 3D Visualizer
+    ORBIS - Frequency-Driven 3D Visualizer
     Version: v1.0.0-alpha (2025-05-22 build)
-    Proyecto Fin de Grado · MEDAC NEVADA · 2024‑25
+    Proyecto Fin de Grado · MEDAC NEVADA · 2024-25
     Integrantes del equipo ORBIS:
-    · Pedro Jesús Gómez Pérez – Arquitectura DSP & back‑end de audio, Diseño UI / UX y desarrollo PySide 6 en estado alpha
-    · David Erik García Arenas – Integración 3D con Blender & shaders, Diseño UI / UX y desarrollo PySide 6 en estado beta
+    · Pedro Jesús Gómez Pérez - Arquitectura DSP & back-end de audio, Diseño UI / UX y desarrollo PySide 6 en estado alpha
+    · David Erik García Arenas - Integración 3D con Blender & shaders, Diseño UI / UX y desarrollo PySide 6 en estado beta
 ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
     CHANGELOG completo hasta v1.0.0-alpha
 
 ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-    v0.9.1 – Smooth UI
+    v0.9.1 - Smooth UI
     - PreciseTimer + linear interpolation → butter-smooth motion.
     - Moving-average FPS read-out tied to the user cap (30-240, monitor, ±360).
-    - “Unlimited” is capped to MAX_FPS_HW to avoid runaway 10 000 fps.
+    - “Unlimited” is capped to MAX_FPS_HW to avoid runaway 10000 fps.
 ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-    2025-05-15 build – (v0.9.5-beta)
-    - Smooth UI: selectable refresh-rates (30/60/120/240 Hz, monitor native, unlimited) – live-switch via Settings.
+    2025-05-15 build - (v0.9.5-beta)
+    - Smooth UI: selectable refresh-rates (30/60/120/240 Hz, monitor native, unlimited) - live-switch via Settings.
     - OpenGL sphere (or coloured cube fallback) visible in “3-D Shape”.
     - All earlier bug-fixes (Qt6 mouse events, font warnings, JSON safety…).
 ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-    v0.9.7-beta (2025-05-16 build) – Mock-up parity
+    v0.9.7-beta (2025-05-16 build) - Mock-up parity
     - Adds “Load Model…” & “Generate” controls (exclusive to 3-D Shape mode).
     - VBO offsets fixed (ctypes.c_void_p) → mesh now renders.
     - “Generate” (icosphere) corregido.
@@ -40,7 +40,7 @@
     - Waveform/spectrum actualizan nuevamente, removido _tick_ui duplicado.
     - Visualización se oculta cuando se detiene el análisis.
     - Contador FPS siempre visible.
-    - Botones ‘Load Model…’ / ‘Generate’ rediseñados.
+    - Botones "Load Model…" / "Generate" rediseñados.
     - Triple-buffer + vsync (swap-interval 1) para suavidad constante.
 ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
     v0.9.9-beta (2025-05-20 build)
@@ -54,7 +54,7 @@
     - Malla renderiza correctamente (OBJ + icosfera), visualización oculta al detener análisis.
     - Triple-buffer vsync (swap-interval 1) activado → pacing fluido.
 ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
- ###  🔖 Versión actual: v1.0.0-alpha (2025-05-22 build) ###
+ ### Versión actual: v1.0.0-alpha (2025-05-22 build) ###
     Importante: Primera versión plenamente funcional, lista para presentación inicial al tribunal.
     Continúan placeholders y stubs internos para futuras mejoras posteriores al prototipo.
 
@@ -75,25 +75,25 @@
 
     - Controles legacy OpenGL se conservan en código, pero se ocultan visualmente para evitar confusión.
 ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-    📍 Estado general actual (v1.0.0-alpha)
-    El proyecto cumple objetivos técnicos planteados en fase prototipo.
+    Estado general actual (v1.0.0-alpha)
+        El proyecto cumple objetivos técnicos planteados en fase prototipo.
 
-    Integración completa del visualizador 3D externo Baryon vía navegador (placeholder para futura implementación interna).
+        Integración completa del visualizador 3D externo Baryon vía navegador (placeholder para futura implementación interna).
 
-    Exportación JSON robusta y compatible con Blender.
+        Exportación JSON robusta y compatible con Blender.
 
-    Estructura técnica estable para presentación oficial ante tribunal.
+        Estructura técnica estable para presentación oficial ante tribunal.
 
-    Próximos pasos para avanzar a v1.0.0-beta y release candidate (rc):
+        Próximos pasos para avanzar a v1.0.0-beta y release candidate (rc):
 
-    Finalizar integración directa 3D interna (eliminar stubs OpenGL).
+        Finalizar integración directa 3D interna (eliminar stubs OpenGL).
 
-    Implementar correctamente controles: Frequency Range, Resolution y Sensitivity.
+        Implementar correctamente controles: Frequency Range, Resolution y Sensitivity.
 
-    Pulir interfaz final y optimizar UX/UI basándose en feedback del tribunal.
+        Pulir interfaz final y optimizar UX/UI basándose en feedback del tribunal.
 ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
-    📝 Licencia
-    Public-domain / CC0. El proyecto entero permanece abierto para futuras colaboraciones académicas y profesionales.
+    Licencia
+        Public-domain / CC0. El proyecto entero permanece abierto para futuras colaboraciones académicas y profesionales.
     '''
 
 import sys, time, math, json, warnings, ctypes
@@ -130,13 +130,16 @@ import psutil, sounddevice as sd
 import pyloudnorm
 
 # ── Rutas & constantes ──────────────────────────────────────────────────────
+# Se calculan con pathlib.Path(resolve) de forma que la app es portable (no depende de rutas absolutas ni del CWD).
 BASE_DIR  = Path(__file__).resolve().parent
 FONT_DIR  = BASE_DIR / "resources" / "fonts"
 IMG_DIR   = BASE_DIR / "resources" / "images"
 CAPT_DIR  = BASE_DIR / "captures"
-JSON_PATH = BASE_DIR / "json" / "orbis_data.json"
-LOGO_PATH = IMG_DIR / "orbis_logo.png"        # encabezado
-ICON_PATH = IMG_DIR / "orbis_icon.ico"        # icono app / task‑bar
+JSON_PATH = BASE_DIR / "json" / "orbis_data.json"   # Fichero que Blender lee 60 veces por segundo mediante el add‑on de Geometry Nodes.  Así se desacopla la UI de PySide 6 del motor 3D.
+LOGO_PATH = IMG_DIR / "orbis_logo.png"              # encabezado
+ICON_PATH = IMG_DIR / "orbis_icon.ico"              # icono app / task‑bar
+# ── Configuración global ────────────────────────────────────────────────────
+# Tokens de diseño compartidos entre lógica y CSS Qt.  Cualquier cambio centralizado aquí mantiene la coherencia visual y de escalas.
 VERSION   = "v0.9‑beta"
 METRIC_LABELS = ("Peak Level",
                  "RMS Level",
@@ -148,10 +151,11 @@ COLORS = dict(bg="#121212", panel="#1E1E1E", border="#2D2D2D", text="#E0E0E0",
               primary="#45A4FF", secondary="#9B4DFF", cyan="#45D6FF")
 
 # viridis LUT (fallback)
+# Tabla RGBA mínima por si pyqtgraph no encuentra la LUT oficial; evita que el espectrograma salga en gris plano.
 try:
     VIRIDIS_LUT = pg.colormap.get('viridis').getLookupTable(alpha=True)
 except Exception:
-    VIRIDIS_LUT = np.array([[68,1,84,255],[59,81,139,255],[33,144,141,255],
+    VIRIDIS_LUT = np.array([[68,1,84,255],[59,81,139,255],[33,144,141,255],     
                             [72,193,110,255],[170,220,50,255],[253,231,37,255]])
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -161,16 +165,22 @@ except Exception:
 try:
     from OpenGL.GL import glClearColor, glClear, GL_COLOR_BUFFER_BIT
     class GLWidget(QOpenGLWidget):
-        def initializeGL(self): glClearColor(18/255,18/255,18/255,1)
-        def paintGL(self):       glClear(GL_COLOR_BUFFER_BIT)
+        def initializeGL(self): glClearColor(18/255,18/255,18/255,1)        # Fija el clear‑color; Qt maneja el buffer‑swap por nosotros.
+        def paintGL(self):       glClear(GL_COLOR_BUFFER_BIT)               # Hace un simple glClear().  El render 3D real se integrará más adelante o se delega al visor Baryon externo.
 except ImportError:                       # sin PyOpenGL → canvas vacío
     class GLWidget(QWidget):              # (evita el traceback)
         def paintEvent(self,_): pass
 
 class OrbWidget(QWidget):
-    levelChanged = Signal(int)            # por si te sirve a futuro
-
-    FRAMES_DIR = BASE_DIR / "resources" / "images" / "orb_frames"  # <— usa tu ruta
+    """
+        class OrbWidget -> Objetivo :
+        Mostrar 31 frames de una esfera respirando.  Sirve de animación de espera
+        cuando el análisis está parado o los tres rangos (graves, medios, agudos)
+        están equilibrados.    
+    """
+    
+    levelChanged = Signal(int)            
+    FRAMES_DIR = BASE_DIR / "resources" / "images" / "orb_frames"  
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -179,6 +189,7 @@ class OrbWidget(QWidget):
         self.setAttribute(Qt.WA_TransparentForMouseEvents, True)
 
     # --------------------- Qt Property -------------------------------
+    # Expuesta con Property(int, ...) para poder animarla con QPropertyAnimation, QML o señales C++ si se quisiera portar.
     def get_level(self):         return self._level
     def set_level(self, val: int):
         val = max(1, min(31, int(round(val))))
@@ -189,7 +200,8 @@ class OrbWidget(QWidget):
     level = Property(int, get_level, set_level)
 
     # --------------------- Helpers -----------------------------------
-    def _load_pixmap(self, idx: int) -> QPixmap:
+    # Usa QPixmapCache: la primera vez carga de disco, las siguientes lo recupera de RAM.  Evita tirones al cambiar de frame.
+    def _load_pixmap(self, idx: int) -> QPixmap:                
         key = f"orb{idx:02d}"
         pm  = QPixmap()
         if not QPixmapCache.find(key, pm):
@@ -198,6 +210,7 @@ class OrbWidget(QWidget):
         return pm
 
     # --------------------- Paint -------------------------------------
+    # Escala la imagen 1.8×, centrada, con SmoothPixmapTransform (filtrado Lanczos).  Así no se pixela en pantallas Hi‑DPI.
     def paintEvent(self, _):
         pm = self._load_pixmap(self._level)
         if pm.isNull():
@@ -216,16 +229,16 @@ class VisualizationWidget(QWidget):
     def __init__(self):
         super().__init__()
         # capas
-        self.gl=GLWidget(self); self.gl.lower()
-        self.orb=OrbWidget(self); self.orb.lower()
+        self.gl=GLWidget(self); self.gl.lower()                                             # futuro mesh 3D
+        self.orb=OrbWidget(self); self.orb.lower()                                          # sprite breathing
         # waveform
-        self.wave_pg=pg.PlotWidget(self,background=None); self.wave_pg.hide()
+        self.wave_pg=pg.PlotWidget(self,background=None); self.wave_pg.hide()               # osciloscopio (pyqtgraph)
         self.wave_pg.setMenuEnabled(False); self.wave_pg.setMouseEnabled(False,False)
         self.wave_pg.getPlotItem().setContentsMargins(0,0,0,0)
         self.wave_buf=np.zeros(512)
         self.wave_curve=self.wave_pg.plot(pen=pg.mkPen(COLORS['secondary'],width=2))
         # spectrogram
-        self.spec_pg=pg.PlotWidget(self,background=None); self.spec_pg.hide()
+        self.spec_pg=pg.PlotWidget(self,background=None); self.spec_pg.hide()               # espectrograma deslizante
         self.spec_pg.setMenuEnabled(False); self.spec_pg.setMouseEnabled(False,False)
         self.spec_pg.getPlotItem().setContentsMargins(0,0,0,0)
         self.spec_img=pg.ImageItem(axisOrder='row-major'); self.spec_img.setLookupTable(VIRIDIS_LUT)
@@ -233,17 +246,24 @@ class VisualizationWidget(QWidget):
         # overlay controles
         glyphs=["\ue3d4","\ue3d5","\ue3a8","\ue38b"]; names=["in","out","reset","fs"]
         self.ctrl={}
-        for g,n in zip(glyphs,names):
+        for g,n in zip(glyphs,names):                                                       #zoom (QToolButton con iconos Remixicon)
             b=QToolButton(self,text=g); b.setFont(QFont("Remixicon",16))
             b.setFixedSize(32,32)
             b.setStyleSheet(f"background:{COLORS['panel']};border-radius:16px;"
                             f"color:{COLORS['secondary']};QToolButton:hover{{color:{COLORS['primary']}}}")
             self.ctrl[n]=b
+
     def resizeEvent(self,_):
+        # Re‑coloca todo al redimensionar.  
+        # Los botones se fijan en la esquina inferior izquierda a 14 px del borde; separados 38 px.
+        
         for w in (self.gl,self.orb,self.wave_pg,self.spec_pg): w.setGeometry(self.rect())
         x,y=14,self.height()-46
         for b in self.ctrl.values(): b.move(x,y); x+=38
+
     def paintEvent(self,_):
+        # Dibuja un grid 20×20 px en cian semitransparente y un hexágono central con gradiente radial.  
+        # Pura estética “HUD”.
         p=QPainter(self); p.setRenderHint(QPainter.Antialiasing)
         p.setPen(QPen(QColor(69,164,255,25)))
         for gx in range(0,self.width(),20): p.drawLine(gx,0,gx,self.height())
@@ -254,26 +274,43 @@ class VisualizationWidget(QWidget):
         g=QRadialGradient(c,r); g.setColorAt(0,QColor(69,164,255,13)); g.setColorAt(1,COLORS['bg'])
         p.setBrush(QBrush(g)); p.drawPolygon(QPolygonF(pts))
     # API
+
     def set_mode(self,m):
+        # Hace visibles/invisibles las capas según: 
+        # 'wave', 
+        # 'spec', 
+        # 'spectrum' 
+        # 'shape'.
+
         self.wave_pg.setVisible(m=="wave")
         self.spec_pg.setVisible(m=="spec")
         self.orb.setVisible(m in ("shape","spectrum"))
         self.gl.setVisible(m=="shape")
+
     def zoom_y(self,factor:float):
+        # Escala el eje Y de la vista visible conservando el centro; útil para hacer zoom vertical sin desplazar la señal.
         for w in (self.wave_pg,self.spec_pg):
             if w.isVisible():
                 vb=w.getViewBox(); lo,hi=vb.viewRange()[1]
                 mid=(lo+hi)/2; span=(hi-lo)*factor/2
                 vb.setYRange(mid-span,mid+span,padding=0)
+
     def reset_zoom(self):
+        # Llama a autoRange() de pyqtgraph → ajusta Y a los datos en pantalla.
         for w in (self.wave_pg,self.spec_pg):
             if w.isVisible(): w.getViewBox().autoRange()
 
 # ════════════════════════════════════════════════════════════════════════════
-#  MAIN WINDOW
+#  VENTANA PRINCIPAL
 # ════════════════════════════════════════════════════════════════════════════
 class OrbisUI(QMainWindow):
     def __init__(self,analyzer:AudioAnalyzer):
+        # Recibe un AudioAnalyzer (puede ser None para test offline).
+        # Crea timers, carga tipografías, aplica CSS y construye paneles.
+        # Mantiene tres variables de estado para el OrbWidget:
+        #   _breath_seq  patrón de respiración
+        #   _breath_idx  índice dentro del patrón
+        #   _target_idx  frame objetivo según la ecualización instantánea
         super().__init__()
         self.analyzer=analyzer; self.running=False; 
         # ── estado del orbe -------------------------------------------------
@@ -292,12 +329,19 @@ class OrbisUI(QMainWindow):
             QGuiApplication.setWindowIcon(QIcon(str(LOGO_PATH)))
             self.setWindowIcon(QIcon(str(LOGO_PATH)))
         self.resize(1280,800)
+    
+
     # ── fuentes + CSS ────────────────────────────────────────────────────
     def _fonts(self):
+        # Registra Orbitron, Rajdhani y Remixicon desde ./resources/fonts.  
+        # Si falta alguno muestra un warning pero no aborta.
         for f in ("Orbitron-Regular.ttf","Rajdhani-Regular.ttf","Remixicon.ttf"):
             try: QFontDatabase.addApplicationFont(str(FONT_DIR/f))
             except Exception: warnings.warn(f"Font {f} not found – using default")
+
     def _style(self):
+        # CSS global en un solo bloque: colores, radios, gradientes. 
+        # Evita mezclar estilos sueltos por todo el código.
         self.setStyleSheet(f"""
             QWidget{{background:{COLORS['bg']};color:{COLORS['text']};font-family:Rajdhani;}}
             QGroupBox{{border:1px solid {COLORS['border']};border-radius:12px;padding:8px;}}
@@ -313,8 +357,17 @@ class OrbisUI(QMainWindow):
             QCheckBox::indicator{{width:18px;height:18px;border-radius:4px;background:{COLORS['border']};}}
             QCheckBox::indicator:checked{{background:{COLORS['primary']};}}
         """)
+
     # ────────── CONSTRUCCIÓN UI ──────────────────────────────────────────
     def _build(self):
+        # Descompone la UI en métodos menores para legibilidad:
+        #   _header()       → encabezado con logo, título y dispositivo
+        #   _panel_controls() → controles de análisis (deslizadores, checkboxes, botones)
+        #   _panel_viz()    → panel de visualización (waveform, spectrogram, orbe)
+        #   _panel_metrics() → métricas de audio (RMS, LUFS, etc.)
+        #   _panel_spectrum() → espectro de audio fft (pyqtgraph)
+        #   _footer()       → pie de página con versión y créditos
+
         central=QWidget(); self.setCentralWidget(central)
         root=QVBoxLayout(central); root.setContentsMargins(0,0,0,0); root.setSpacing(0)
         root.addWidget(self._header())
@@ -351,6 +404,7 @@ class OrbisUI(QMainWindow):
         hl.addWidget(QPushButton(chr(0xeb8c)+"  Settings"))
         return hdr
     def _fill_devices(self):
+        # Interroga PortAudio → filtra solo dispositivos con canales de entrada y guarda el índice en userData para uso rápido.
         self.device_cb.clear()
         for i,d in enumerate(sd.query_devices()):
             if d['max_input_channels']>0: self.device_cb.addItem(d['name'],userData=i)
@@ -445,6 +499,8 @@ class OrbisUI(QMainWindow):
         sb.addPermanentWidget(QLabel(f"ORBIS {VERSION}"))
     # neon ripple
     def _neon(self,btn:QPushButton):
+        # Añade sombra azul y animación “ripple” al pulsar.  
+        # Reutilizable para cualquier QPushButton.
         eff=QGraphicsDropShadowEffect(); eff.setBlurRadius(20); eff.setColor(QColor(COLORS['primary']))
         btn.setGraphicsEffect(eff)
         def ripple():
@@ -454,15 +510,24 @@ class OrbisUI(QMainWindow):
         btn.clicked.connect(ripple)
     # timers
     def _timers(self):
-        self.t0=time.time()
+        self.t0=time.time()                                                                             # 100 ms → _tick()      (≈10 Hz)
         self.ui_timer=QTimer(interval=100,timeout=self._tick); self.ui_timer.start()
-        self.footer_timer=QTimer(interval=1000,timeout=self._tick_footer); self.footer_timer.start()
+        self.footer_timer=QTimer(interval=1000,timeout=self._tick_footer); self.footer_timer.start()    # 1 s    → _tick_footer()
 
     # ────────────────────────────────────────────────────────────────────
     # LOOP
     # ────────────────────────────────────────────────────────────────────
-    # ───────────────────────────────────────────────────────────────────
     def _tick(self):
+        # Bucle gordo de refresco UI:
+        # 1. Obtiene volumen, frecuencia dominante, FFT y sample‑rate.
+        # 2. Calcula métricas globales (offsets de -6/-1/+1 LUFS para simular medidores broadcast).
+        # 3. Saca picos Low/Mid/High con peak_db().
+        # 4. Actualiza labels y ancho de barras.
+        # 5. Decide el frame destino del orbe con _update_target_from_audio().
+        # 6. Si el modo es 'wave' o 'spec' actualiza su gráfica.
+        # 7. Redibuja el gráfico de barras (_plot_spectrum()).
+        # 8. Exporta JSON para Blender con _export_json().
+ 
         if not self.running:
             return
 
@@ -533,6 +598,12 @@ class OrbisUI(QMainWindow):
 
 
     def _plot_spectrum(self, fft: np.ndarray | None, sr: int) -> None:
+        # • Genera 33 centros de banda (geométrica) entre 1 Hz y 20 kHz.
+        # • Función f2x() mapea frecuencia a posición X con: lineal 1‑20 Hz, log 20‑5 kHz, lineal 5‑20 kHz.
+        #   Así los graves no se amontonan y los agudos se expanden.
+        # • Aplica media exponencial (α = slider/100) y memoria de picos (decay 0.5).
+        # • Dibuja barras con gradiente vertical y opcionalmente los picos como puntos Scatter.
+  
         if fft is None or not len(fft):
             return
         import math, numpy as np
@@ -640,6 +711,7 @@ class OrbisUI(QMainWindow):
         self._tip.setPos(self._bar_x[idx], db + 1)
 
     def _set_metric(self, label: str, val: float):
+        # Actualiza texto LUFS/dB y ensancha una barra de 0‑150 px proporcional al rango Y_MIN_DB–Y_MAX_DB.
         lab, bar = self.metrics[label]
         span = Y_MAX_DB - Y_MIN_DB            # 60 dB
         pct = max(0, min(1, (val - Y_MIN_DB) / span))
@@ -650,6 +722,8 @@ class OrbisUI(QMainWindow):
 
 
     def _export_json(self, vol, freq, fft, sr, extra: dict | None = None):
+        # Prepara diccionario, añade low/mid/high y, si hay FFT, crea 12 claves "20Hz", "50Hz", … "20000Hz" con dBFS redondeado a 0.01. 
+        # Escribe con indent=2 para que el diff en Git sea legible.
         JSON_PATH.parent.mkdir(exist_ok=True)
         data = dict(volume=round(vol, 2),
                     dominant_freq=round(freq, 2),
@@ -663,18 +737,29 @@ class OrbisUI(QMainWindow):
                 spec[f"{t}Hz"]=round(20*np.log10(max(fft[(np.abs(f-t)).argmin()],1e-10)),2)
             data["spectrum"]=spec
         with open(JSON_PATH,"w") as f: json.dump(data,f,indent=2)
+
     def _capture(self):
+        # Captura la vista de pyqtgraph a una PNG nombrada con timestamp dentro de ./captures.  
+        # Muestra toast de 5 s en la status‑bar.
         CAPT_DIR.mkdir(exist_ok=True)
         path=CAPT_DIR/f"spectrum_{time.strftime('%Y%m%d_%H%M%S')}.png"
         self.pg.grab().save(str(path)); self.statusBar().showMessage(f"✔ saved {path.name}",5000)
-    # Lanza el visor Baryon en el navegador
+
     def _open_baryon(self):
+        # Lanza el visor 3D Baryon si no está ya abierto.
+        # Si falla, muestra un botón para reintentar.
+
         if launch_baryon(force_local=False, ask=True):
             self.btn_baryon.setText("Launched ✔")
         else:
             self.btn_baryon.setText("Retry 3-D Viewer")
-    # stream
+    
+
     def _toggle_stream(self):
+        #Start/Stop del AudioAnalyzer:
+        # Si está corriendo, lo detiene y cambia el texto del botón a "Start Analysis".
+        # Si no, lo inicia con el dispositivo seleccionado y cambia el texto a "Stop Analysis". 
+        # Esto evita estado zombie de PortAudio.
         if self.running:
             self.analyzer.stop(); self.running=False
             self.start_btn.setText(chr(0xefea)+"  Start Analysis")
@@ -683,7 +768,9 @@ class OrbisUI(QMainWindow):
             self.analyzer=AudioAnalyzer(device=self.device_cb.currentData())
             self.analyzer.start(); self.running=True
             self.start_btn.setText(chr(0xef47)+"  Stop Analysis")
+
     # modos
+    # Cambian entre los cuatro modos y aplican CSS distinto (cyan para spectrum/shape, morado para wave/spec).
     def _set_mode(self,m):
         if m==self.current_mode: return
         self.current_mode=m; self._update_mode_style(); self.vis.set_mode(m)
@@ -694,8 +781,10 @@ class OrbisUI(QMainWindow):
                 b.setStyleSheet(f"background:{col}30;color:{col};border:1px solid {col}50;"); b.setChecked(True)
             else:
                 b.setStyleSheet(f"background:{COLORS['panel']};color:#fff;border:1px solid {COLORS['secondary']}40;"); b.setChecked(False)
+    
     # footer
     def _tick_footer(self):
+        # Uptime HH:MM:SS, CPU psutil, tamaño de buffer y sample‑rate del dispositivo cada segundo.
         t=int(time.time()-self.t0); h,m,s=t//3600,(t//60)%60,t%60
         self.lbl_time.setText(f"Session {h:02}:{m:02}:{s:02}")
         self.lbl_cpu.setText(f"CPU {psutil.cpu_percent():>3.0f}%")
@@ -704,7 +793,11 @@ class OrbisUI(QMainWindow):
             sr=int(d['default_samplerate']); buf=int(d['default_low_input_latency']*sr)
         except Exception: sr=buf=0
         self.lbl_buf.setText(f"Buffer {buf}"); self.lbl_sr.setText(f"Sample Rate {sr} Hz")
+
     def _advance_idle(self):
+        # Mini IA del Orbe:
+        # 1) Si ya estamos en el destino, respira con el patrón actual.
+        # 2) Si no, mueve un PNG hacia el destino.
         orb = self.vis.orb
 
         # 1) si ya estamos en el destino → respira con el patrón actual
@@ -717,9 +810,8 @@ class OrbisUI(QMainWindow):
         step = 1 if self._target_idx > orb.level else -1
         orb.set_level(orb.level + step)
     def _update_target_from_audio(self, low, mid, high):
-        """
-        Decide self._target_idx según la diferencia de bandas.
-        """
+        # Compara diferencias entre bandas.
+        # 3/6/10 dB son umbrales
         BIG = 10      # MUCHO
         MED = 6       # MEDIANO
         SMALL = 3     # LIGERO
@@ -728,7 +820,6 @@ class OrbisUI(QMainWindow):
         dom_low  = low  - max(mid, high)
         dom_high = high - max(mid, low)
         dom_mid  = mid  - max(low, high)
-
 
         # --- graves dominan -------------------------------------------------
         if dom_low > BIG:
@@ -766,6 +857,7 @@ class OrbisUI(QMainWindow):
 
 # ════════════════════════════════════════════════════════════════════════════
 if __name__=="__main__":
+    # Punto de entrada.  Crea QApplication, configura icono (ICO ≫ PNG), instancia OrbisUI con un AudioAnalyzer vacío y llama a exec().
     app=QApplication(sys.argv)
     if ICON_PATH.exists(): app.setWindowIcon(QIcon(str(ICON_PATH)))
     elif LOGO_PATH.exists(): app.setWindowIcon(QIcon(str(LOGO_PATH)))
